@@ -1,7 +1,18 @@
-# Variation Cover Sheet Generator
+# Axis Variations
 
-Produces a variation cover sheet as a real A4 PDF, filling most of it from two
-registers so the person issuing it types only what is actually new.
+Produces a variation cover sheet as a real A4 PDF, filling most of it from the
+project's setup so the person issuing it types only what is actually new.
+
+**Where the data lives:** projects, the variation log, variation files and
+agreed schedules of rates are in **Supabase**; the only thing sent to
+SharePoint is the issued PDF, filed into the project's folder. Projects are set
+up in the app (**+ New project** on an office's projects page), and the old
+SharePoint lists can be brought across from Administrator settings. See
+[docs/SUPABASE.md](docs/SUPABASE.md), which also lists which Power Automate
+flows are no longer used.
+
+Typography follows the Axis Services Group branding guidelines: Raleway for
+headings, Arial for body text.
 
 ```
 open index.html            # works straight off the disk

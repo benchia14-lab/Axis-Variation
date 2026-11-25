@@ -47,6 +47,7 @@ const DOC_TITLES = {
   'VARIATION-FILES.md': '9 - Saving and Reopening Variation Files',
   'PROJECT-DASHBOARD.md': '10 - The Projects Page and Dashboard',
   'AGREED-RATES.md': '11 - Agreed Schedules of Rates',
+  'SUPABASE.md': '12 - Supabase, Project Setup and the Flows Now',
 };
 
 /* ---------------------------------------------------------------- inline --- */

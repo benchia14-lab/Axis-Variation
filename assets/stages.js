@@ -1247,7 +1247,7 @@ const Stages = (function(){
         ratesFile: p.ratesFile, folderPath: p.folderPath || '', siteUrl: p.siteUrl || ''
       });
       const agreed = AgreedRates.readWorkbook(bytes);
-      const meta = { kind: 'agreed', projectId: key, project: p.project || '', name: fileNameOf(p.ratesFile),
+      const meta = { kind: 'agreed', projectId: key, project: p.project || '', name: p.ratesName || fileNameOf(p.ratesFile),
                      path: p.ratesFile, loadedAt: new Date().toISOString() };
       agreedCache[key] = { agreed: agreed, meta: meta };
       if(!selectedProject || String(selectedProject.id) !== key) return;   // moved on meanwhile
@@ -1301,7 +1301,7 @@ const Stages = (function(){
       html = '<b>Uploaded schedule</b> — <code>' + escapeHtml(source.name) + '</code>, ' + escapeHtml(when(source.loadedAt));
     } else {
       html = '<b>Master schedule of rates</b>' + (source.chosen ? ', chosen for this variation'
-        : p && !p.ratesFile ? ' — this project has no agreed rates in the register' : '');
+        : p && !p.ratesFile ? ' — this project has no agreed rates' + (Flows.inDb('ratesUrl') ? ' (add them in the project\'s setup)' : ' in the register') : '');
     }
     sourceText.innerHTML = html;
     const status = document.getElementById('sor-source-status');
@@ -1666,7 +1666,8 @@ const Stages = (function(){
 
   /* ---- the upload lists --------------------------------------------------- */
 
-  document.querySelectorAll('.drop-zone').forEach(zone => {
+  // the documentation step's own zones (the project setup and import ones have handlers of their own)
+  document.querySelectorAll('.drop-zone[data-bucket]').forEach(zone => {
     const bucket = zone.getAttribute('data-bucket');
     const input = zone.querySelector('input[type=file]');
     input.addEventListener('change', () => { addFiles(bucket, input.files); input.value = ''; });

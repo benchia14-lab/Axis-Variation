@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex, nofollow, noarchive">
 <title>Axis Variations</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <!-- Inline too, so the single-file copy and a page opened off the disk keep the mark. -->
@@ -78,13 +78,78 @@
       <div class="board-head-actions">
         <input type="text" id="pj-search" placeholder="Search projects…" autocomplete="off">
         <button class="refresh-btn" id="pj-refresh" type="button">Refresh</button>
+        <button class="print-btn" id="pj-new" type="button" hidden>+ New project</button>
       </div>
     </div>
     <div class="kpis" id="pj-kpis"></div>
     <div class="status-line" id="pj-status"></div>
     <div class="project-grid" id="pj-grid"></div>
+    <div class="pj-inactive" id="pj-inactive" hidden></div>
   </main>
 </div>
+
+<!-- setting up a project (or changing one): what the SharePoint register used to hold -->
+<div class="modal-back" id="ps-modal" hidden>
+  <div class="modal ps-modal" role="dialog" aria-modal="true" aria-labelledby="ps-title">
+    <div class="modal-head">
+      <div>
+        <p class="modal-kicker" id="ps-kicker">New project</p>
+        <h2 id="ps-title">Project setup</h2>
+        <p class="modal-sub">Filled in once here, then picked up by every variation on the project.</p>
+      </div>
+      <button type="button" class="modal-close" id="ps-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-row">
+        <div class="field"><label for="ps-project">Project name <span class="req-mark">*</span></label>
+          <input type="text" id="ps-project" placeholder="e.g. Austin Hospital"></div>
+        <div class="field"><label for="ps-projectNumber">Project number</label>
+          <input type="text" id="ps-projectNumber" placeholder="e.g. 1507V"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="ps-headContractor">Head contractor</label>
+          <input type="text" id="ps-headContractor" placeholder="e.g. Built"></div>
+        <div class="field"><label for="ps-attention">Attention</label>
+          <input type="text" id="ps-attention" placeholder="e.g. Spiros Laladakis"></div>
+      </div>
+      <div class="field"><label for="ps-recipientAddress">Recipient address</label>
+        <textarea id="ps-recipientAddress" placeholder="145 Studley Road,&#10;Heidelberg, 3084"></textarea></div>
+      <div class="field-row">
+        <div class="field"><label for="ps-issuedBy">Issued by</label>
+          <input type="text" id="ps-issuedBy" placeholder="e.g. Adam Donnelly"></div>
+        <div class="field"><label for="ps-position">Position</label>
+          <input type="text" id="ps-position" placeholder="e.g. Project Manager"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="ps-pmEmail">PM email</label>
+          <input type="text" id="ps-pmEmail" placeholder="e.g. adam.donnelly@axisvic.com.au"></div>
+        <div class="field"><label for="ps-clauseRef">Clause ref <span class="field-note">(optional, the same on every variation)</span></label>
+          <input type="text" id="ps-clauseRef" placeholder="e.g. Cl 12.3"></div>
+      </div>
+      <div class="field"><label for="ps-folderPath">SharePoint folder for the PDFs</label>
+        <input type="text" id="ps-folderPath" placeholder="/Shared Documents/15.Projects_VIC/1507V_Austin_Hospital/11.Variations">
+        <p class="field-help">Where <b>Download PDF</b> files each issued variation — the one thing still sent to SharePoint.</p></div>
+      <div class="field"><label for="ps-siteUrl">SharePoint site <span class="field-note">(only if it is not the filing flow's usual site)</span></label>
+        <input type="text" id="ps-siteUrl" placeholder="https://axisplumbingptyltd.sharepoint.com/sites/AXPVIC"></div>
+
+      <p class="form-subtitle">Agreed schedule of rates</p>
+      <label class="drop-zone ps-rates-zone" id="ps-rates-zone">
+        <input type="file" id="ps-rates-file" accept=".xlsx,.xlsm,.xls,.csv">
+        <span class="dz-main">Drop the project's agreed schedule of rates here, or <u>browse</u></span>
+        <span class="dz-sub">The Excel workbook the rates were agreed in. Every variation on the project is priced from it; without one, the master rates are used.</span>
+      </label>
+      <div class="ps-rates-now" id="ps-rates-now"></div>
+
+      <label class="ps-active"><input type="checkbox" id="ps-active" checked> Active — shown on the projects page and in the project list</label>
+      <div class="ps-actions">
+        <button type="button" class="print-btn" id="ps-save">Save project</button>
+        <button type="button" class="refresh-btn" id="ps-cancel">Cancel</button>
+      </div>
+      <div class="status-line" id="ps-status"></div>
+    </div>
+  </div>
+</div>
+
 
 <!-- ============ 1c · ONE PROJECT'S VARIATIONS ============ -->
 <div class="board" id="view-dashboard" hidden>
@@ -106,6 +171,7 @@
       </div>
       <div class="board-head-actions">
         <button class="refresh-btn" id="db-refresh" type="button">Refresh</button>
+        <button class="refresh-btn" id="db-edit-project" type="button" hidden>Project setup</button>
         <button class="print-btn" id="db-new" type="button">+ New variation</button>
       </div>
     </div>
@@ -293,25 +359,25 @@
       </div>
 
       <div class="field pulled-field">
-        <span class="pulled-tag" title="Filled from the SharePoint project register" id="tag-projectnumber" hidden>auto</span>
+        <span class="pulled-tag" title="Filled from the project's setup" id="tag-projectnumber" hidden>auto</span>
         <label for="projectnumber">Project number</label>
         <input type="text" id="projectnumber" placeholder="e.g. 1507V" autocomplete="off">
       </div>
 
       <div class="prefilled-group" id="pf-recipient">
       <div class="field pulled-field">
-        <span class="pulled-tag" title="Filled from the SharePoint project register" id="tag-recipient-name" hidden>auto</span>
+        <span class="pulled-tag" title="Filled from the project's setup" id="tag-recipient-name" hidden>auto</span>
         <label for="recipient-name">Head contractor / company <span class="req-mark">*</span></label>
         <input type="text" id="recipient-name" placeholder="e.g. Kapitol Group" autocomplete="off">
       </div>
       <div class="field pulled-field ac-wrap">
-        <span class="pulled-tag" title="Filled from the SharePoint project register" id="tag-recipient-address" hidden>auto</span>
+        <span class="pulled-tag" title="Filled from the project's setup" id="tag-recipient-address" hidden>auto</span>
         <label for="recipient-address">Recipient address <span class="req-mark">*</span></label>
         <textarea id="recipient-address" placeholder="e.g. Level 3, 4 Broadcast Way,&#10;Artarmon NSW 2064" autocomplete="off"></textarea>
         <div class="ac-list" id="ac-recipient-address"></div>
       </div>
       <div class="field pulled-field ac-wrap">
-        <span class="pulled-tag" title="Filled from the SharePoint project register" id="tag-attention" hidden>auto</span>
+        <span class="pulled-tag" title="Filled from the project's setup" id="tag-attention" hidden>auto</span>
         <label for="attention">Attention <span class="req-mark">*</span></label>
         <input type="text" id="attention" placeholder="e.g. Glen O'Connor" autocomplete="off">
         <div class="ac-list" id="ac-attention"></div>
@@ -437,15 +503,15 @@
       <div class="field-row">
       <div class="prefilled-group" id="pf-signoff">
         <div class="field pulled-field">
-          <span class="pulled-tag" title="Filled from the SharePoint project register" id="tag-sig-name" hidden>auto</span>
+          <span class="pulled-tag" title="Filled from the project's setup" id="tag-sig-name" hidden>auto</span>
           <label for="sig-name">Issued by (name)</label><input type="text" id="sig-name" placeholder="e.g. Ben Smith">
         </div>
         <div class="field pulled-field">
-          <span class="pulled-tag" title="Filled from the SharePoint project register" id="tag-sig-title" hidden>auto</span>
+          <span class="pulled-tag" title="Filled from the project's setup" id="tag-sig-title" hidden>auto</span>
           <label for="sig-title">Position</label><input type="text" id="sig-title" placeholder="e.g. Project Engineer">
         </div>
         <div class="field pulled-field ac-wrap">
-          <span class="pulled-tag" title="Filled from the SharePoint project register (PmEmail)" id="tag-sig-email" hidden>auto</span>
+          <span class="pulled-tag" title="Filled from the project's setup" id="tag-sig-email" hidden>auto</span>
           <label for="sig-email">PM email <span class="req-mark">*</span></label>
           <input type="text" id="sig-email" class="mono-input" placeholder="e.g. ben.smith@axisplumbing.com.au" autocomplete="off">
           <div class="ac-list" id="ac-sig-email"></div>
@@ -854,17 +920,26 @@
     <div class="status-line" id="flows-connect-status"></div>
     <ul class="flow-report" id="flows-connect-report" hidden></ul>
 
+    <div class="good-note" id="db-note" hidden>
+      <strong>Projects, the variation log, variation files and agreed rates are kept in Supabase.</strong>
+      <span>So Get projects, Variation log — read and write, Open a variation file and Get agreed rates are no
+        longer used, and their boxes are hidden. Only <b>File the PDF</b> (and the optional <b>Write professionally</b>)
+        still go to Power Automate. See <code>docs/SUPABASE.md</code>.</span>
+    </div>
+
     <div class="good-note" id="proxy-note" hidden>
       <strong>This site holds the flow URLs itself.</strong>
       <span id="proxy-note-detail"></span>
     </div>
 
+    <div class="db-replaced" data-db-flow>
     <div class="field">
       <label for="flow-projects">Get projects — HTTP POST URL</label>
       <textarea id="flow-projects" placeholder="https://prod-00.australiasoutheast.logic.azure.com:443/workflows/…&amp;sig=…"></textarea>
     </div>
     <p class="settings-help">Receives <code>{"state":"VIC"}</code> and answers with the project register
       rows for that state. Without it the project dropdown stays empty and everything is typed by hand.</p>
+    </div>
 
     <div class="field">
       <label for="flow-file">File the PDF — HTTP POST URL</label>
@@ -873,6 +948,7 @@
     <p class="settings-help">Receives the finished PDF and the project's folder path when someone clicks
       Download PDF. Without it the PDF still downloads, it just is not filed.</p>
 
+    <div class="db-replaced" data-db-flow>
     <div class="field">
       <label for="flow-log-read">Variation log — read URL</label>
       <textarea id="flow-log-read" placeholder="Leave blank to work without a log"></textarea>
@@ -880,13 +956,16 @@
     <p class="settings-help">Receives <code>{"state","projectId","variationRef"}</code>. Without a reference it
       answers with that project's logged variations; with one, that variation in full. Without this flow the
       app still works, it just cannot reopen anything.</p>
+    </div>
 
+    <div class="db-replaced" data-db-flow>
     <div class="field">
       <label for="flow-log-write">Variation log — write URL</label>
       <textarea id="flow-log-write" placeholder="Leave blank to work without a log"></textarea>
     </div>
     <p class="settings-help">Receives the whole variation and creates or updates its row, matched on the
       project and the variation reference together.</p>
+    </div>
 
     <div class="field">
       <label for="flow-describe">Write professionally — HTTP POST URL <span style="text-transform:none;font-weight:400;">(optional)</span></label>
@@ -895,6 +974,7 @@
     <p class="settings-help">Optional. Left blank, the "Write professionally" button falls back to a local
       tidy-up — real sentences and punctuation, but no rewriting.</p>
 
+    <div class="db-replaced" data-db-flow>
     <div class="field">
       <label for="flow-open-file">Open a variation file — HTTP POST URL <span style="text-transform:none;font-weight:400;">(optional)</span></label>
       <textarea id="flow-open-file" placeholder="Leave blank to open variation files from this computer only"></textarea>
@@ -902,13 +982,16 @@
     <p class="settings-help">Receives <code>{"projectId","folderPath","fileName"}</code> and answers with that file from the
       project's folder. Saving a variation file needs no flow of its own — it goes through
       <strong>File the PDF</strong>. See <code>docs/VARIATION-FILES.md</code>.</p>
+    </div>
 
+    <div class="db-replaced" data-db-flow>
     <div class="field">
       <label for="flow-rates">Get agreed rates — HTTP POST URL <span style="text-transform:none;font-weight:400;">(optional)</span></label>
       <textarea id="flow-rates" placeholder="Leave blank to use the master schedule of rates, or rates uploaded by hand"></textarea>
     </div>
     <p class="settings-help">Receives <code>{"projectId","state"}</code> and answers with the Excel file the project
       register's <code>RatesFile</code> column names. See <code>docs/AGREED-RATES.md</code>.</p>
+    </div>
 
     <div class="settings-actions">
       <button class="print-btn" id="flows-save" type="button">Save endpoints</button>
@@ -1039,6 +1122,35 @@
         <tbody id="bin-rows"></tbody>
       </table>
     </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="form-section" id="import-section">
+    <div class="form-section-head"><span class="form-section-num">E</span><p class="form-section-title">Bring projects and variations across from SharePoint</p></div>
+    <p class="settings-help">Export the SharePoint lists to CSV (<b>Export → Export to CSV</b> in the list) and drop them
+      here. Projects go into their office's project setup and variations into the log, with their saved forms,
+      statuses, values and builder commentary. Safe to run again: a project already set up, or a variation
+      already in the log, is left as it is.</p>
+    <div class="field-row">
+      <label class="drop-zone imp-zone" id="imp-projects-zone">
+        <input type="file" id="imp-projects" accept=".csv,text/csv">
+        <span class="dz-main">Project register CSV</span>
+        <span class="dz-sub" id="imp-projects-name">Drop it here, or browse</span>
+      </label>
+      <label class="drop-zone imp-zone" id="imp-history-zone">
+        <input type="file" id="imp-history" accept=".csv,text/csv">
+        <span class="dz-main">Variation history CSV</span>
+        <span class="dz-sub" id="imp-history-name">Drop it here, or browse</span>
+      </label>
+    </div>
+    <div class="settings-actions">
+      <label class="imp-office">Office for rows with no State
+        <select id="imp-office"></select></label>
+      <button class="print-btn" id="imp-run" type="button">Import</button>
+    </div>
+    <div class="status-line" id="imp-status"></div>
+    <ul class="imp-log" id="imp-log"></ul>
   </div>
 
   </div><!-- /#admin-body -->
