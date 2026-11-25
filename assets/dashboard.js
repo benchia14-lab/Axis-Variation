@@ -168,6 +168,7 @@ const Dashboard = (function(){
   async function showProjects(){
     showOnly(viewProjects);
     const code = currentState.code;
+    if(typeof ProjectSetup !== 'undefined') ProjectSetup.onProjectsPage(code);
     document.getElementById('pj-crumb-office').textContent = currentState.code;
     document.getElementById('pj-title').textContent = (currentState.name || currentState.code) + ' projects';
     pjGrid.innerHTML = '';
@@ -180,10 +181,21 @@ const Dashboard = (function(){
       setLine(pjStatus, '');
       pjGrid.innerHTML = '';
       const empty = el('div', 'home-empty');
-      empty.innerHTML = '<strong>' + (Flows.has('projectsUrl') ? 'No projects came back for ' + escapeHtml(code)
+      const setup = Flows.inDb('projectsUrl');
+      empty.innerHTML = '<strong>' + (setup ? 'No projects set up for ' + escapeHtml(code) + ' yet'
+        : Flows.has('projectsUrl') ? 'No projects came back for ' + escapeHtml(code)
         : 'The project register is not connected') + '</strong>' +
-        escapeHtml(projectStatus.textContent || 'Without the register, a variation can still be made with the project typed in by hand.');
-      const go = el('button', 'print-btn', 'Start a variation by hand');
+        escapeHtml(setup ? 'Set one up once with + New project, and every variation on it picks up its details.'
+          : projectStatus.textContent || 'Without the register, a variation can still be made with the project typed in by hand.');
+      if(setup){
+        const add = el('button', 'print-btn', '+ New project');
+        add.type = 'button';
+        add.style.width = 'auto';
+        add.style.margin = '16px 10px 0 0';
+        add.addEventListener('click', () => ProjectSetup.open(null));
+        empty.appendChild(add);
+      }
+      const go = el('button', setup ? 'refresh-btn' : 'print-btn', 'Start a variation by hand');
       go.type = 'button';
       go.style.width = 'auto';
       go.style.marginTop = '16px';
@@ -293,6 +305,7 @@ const Dashboard = (function(){
       return;
     }
     shownProject = project;
+    if(typeof ProjectSetup !== 'undefined') ProjectSetup.onProjectPage(project);
     document.getElementById('db-title').textContent = project.project || 'Project ' + project.id;
     document.getElementById('db-crumb-project').textContent = project.project || String(project.id);
     document.getElementById('db-sub').innerHTML = [

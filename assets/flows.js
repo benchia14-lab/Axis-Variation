@@ -74,7 +74,14 @@ const Flows = (() => {
 
   // Counts a flow the site serves for us as configured, because to everything
   // that asks, it is.
-  function has(key){ return configured(key); }
+  /* Projects, the variation log, the variation files and the agreed rates are
+     kept in Supabase (assets/db.js) once it is configured: those flows are then
+     not used at all, and the app counts them as connected. Only filing the PDF
+     and the optional wording flow still go to Power Automate. */
+  const DB_KEYS = ['projectsUrl', 'logReadUrl', 'logWriteUrl', 'openFileUrl', 'ratesUrl'];
+  const inDb = key => DB_KEYS.indexOf(key) !== -1 && typeof AxisDb !== 'undefined' && AxisDb.on();
+
+  function has(key){ return inDb(key) || configured(key); }
 
   // Turns fetch's deliberately vague failures into something a site manager can
   // act on. A cross-origin refusal and a dead network both surface as the same
@@ -467,6 +474,12 @@ const Flows = (() => {
   }
 
   async function getProjects(state){
+    if(inDb('projectsUrl')){
+      // the projects set up in the app, the inactive ones left out
+      return (await AxisDb.listProjects(state)).filter(p => p.active)
+        .map((p, i) => Object.assign(normaliseProject(p, i), { active: true, ratesName: p.ratesName,
+                                                               ratesUploadedAt: p.ratesUploadedAt }));
+    }
     if(!configured('projectsUrl')){
       const err = new Error('This app has no projects flow set up — tell whoever set it up.');
       err.unconfigured = true;
@@ -708,6 +721,12 @@ const Flows = (() => {
   // Both calls go to the one read flow. Without a reference it lists what the
   // project has; with one it is asking for that variation in full.
   async function readLog(query){
+    if(inDb('logReadUrl')){
+      const rows = (await AxisDb.listVariations(query.state, query.projectId)).map(normaliseLogRow).filter(r => r.variationRef);
+      rows.received = rows.length;
+      rows.unattributable = 0;
+      return rows;
+    }
     if(!configured('logReadUrl')){
       const err = new Error('This app has no variation log set up — tell whoever set it up.');
       err.unconfigured = true;
@@ -755,6 +774,10 @@ const Flows = (() => {
   }
 
   async function writeLog(payload){
+    if(inDb('logWriteUrl')){
+      await AxisDb.writeVariation(payload);
+      return { status: 'confirmed', response: { ok: true } };
+    }
     if(!configured('logWriteUrl')){
       const err = new Error('This app has no variation log set up — tell whoever set it up.');
       err.unconfigured = true;
@@ -813,6 +836,7 @@ const Flows = (() => {
   }
 
   async function openVariationFile(payload){
+    if(inDb('openFileUrl')) return AxisDb.variationFile(payload.state, payload.projectId, payload.variationRef);
     if(!configured('openFileUrl')){
       const err = new Error('This app has no flow for opening variation files from SharePoint — tell whoever set it up.');
       err.unconfigured = true;
@@ -864,6 +888,13 @@ const Flows = (() => {
   }
 
   async function getAgreedRates(payload){
+    if(inDb('ratesUrl')){
+      try { return await AxisDb.download(payload.ratesFile); }
+      catch(err){
+        if(err.status === 404) err.message = 'The agreed schedule of rates uploaded for this project is no longer there — upload it again in the project\'s setup.';
+        throw err;
+      }
+    }
     if(!configured('ratesUrl')){
       const err = new Error('This app has no flow for reading agreed schedules of rates — tell whoever set it up.');
       err.unconfigured = true;
@@ -917,6 +948,6 @@ const Flows = (() => {
   return { get, save, has, plainMessage, probeProxy, proxyState, viaProxy, sourceOf, builtIn: FlowUrls.get,
            getProjects, fileVariation, describe, openVariationFile, unwrapFile, getAgreedRates,
            listLog, listStateLog, getLog, writeLog, sameRef, rowStatus, rowValue, isDeleted, STATUS_NAMES, LOG_ALIASES,
-           normaliseProject, extractRows, describeRow, describeRows, normKey,
+           normaliseProject, normaliseLogRow, extractRows, inDb, describeRow, describeRows, normKey,
            MAPPABLE, ALIASES, decodePath, splitSitePath };
 })();

@@ -29,10 +29,14 @@ const APP_SCRIPTS = [
   'assets/schedule-of-rates.js',
   'vendor/xlsx.mini.min.js',
   'assets/agreed-rates.js',
+  'assets/supabase-config.js',
+  'assets/db.js',
   'assets/app.js',
   'assets/stages.js',
   'assets/variation-file.js',
   'assets/dashboard.js',
+  'assets/project-setup.js',
+  'assets/importer.js',
 ];
 
 // app.js starts the app once the page has loaded. Loaded from here, the page loaded long ago,

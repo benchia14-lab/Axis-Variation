@@ -302,6 +302,15 @@ function reportMissing(project, filled){
     return;
   }
 
+  const names0 = missing.map(f => f.label).join(', ');
+  // set up in the app: nothing to map, just a blank in the project's setup
+  if(Flows.inDb('projectsUrl')){
+    projectStatus.className = 'status-line';
+    projectStatus.textContent = 'Not in this project\'s setup: ' + names0 + '. Type ' + (missing.length === 1 ? 'it' : 'them') +
+      ' below for this variation, or add ' + (missing.length === 1 ? 'it' : 'them') + ' once under Project setup on the project\'s dashboard.';
+    return;
+  }
+
   const columns = Flows.describeRow(project.raw);
   const withValues = columns.filter(c => !c.empty).length;
 
@@ -383,11 +392,15 @@ async function loadProjects(){
     renderProjectOptions();
     setManualMode(!rows.length);
     projectSelect.disabled = !rows.length;
+    const setUp = Flows.inDb('projectsUrl');
     projectSource.textContent = rows.length
-      ? rows.length + (rows.length === 1 ? ' project' : ' projects') + ' in the ' + forState + ' register · updated ' +
-        new Date().toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit' })
-      : 'The register has no ' + forState + ' projects';
-    if(!rows.length){
+      ? rows.length + (rows.length === 1 ? ' project' : ' projects') + (setUp ? ' set up for ' + forState : ' in the ' + forState + ' register') +
+        ' · updated ' + new Date().toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit' })
+      : setUp ? 'No ' + forState + ' projects set up yet' : 'The register has no ' + forState + ' projects';
+    if(!rows.length && setUp){
+      projectStatus.textContent = 'Set the project up on the ' + forState + ' projects page (+ New project) and it ' +
+        'fills in here, or type it in below for this one variation.';
+    } else if(!rows.length){
       projectStatus.textContent = 'Nothing came back for ' + forState + '. If one register holds every ' +
         'state, check its State column matches ' + forState + ' exactly. If there is a register per ' +
         'state, check the flow has a case for ' + forState + '. Or type the project in below.';
@@ -2525,6 +2538,11 @@ async function connectFlows(){
 
   for(const key of ['projectsUrl', 'fileUrl', 'logReadUrl', 'logWriteUrl', 'describeUrl', 'openFileUrl', 'ratesUrl']){
     const name = FLOW_LABELS[key];
+    // kept in Supabase: there is no flow to try
+    if(Flows.inDb(key)){
+      rows.push(reportRow(name, 'Supabase', 'kept in Supabase — this flow is no longer used', 'ok'));
+      continue;
+    }
     const source = Flows.sourceOf(key);
 
     if(source === 'none'){
@@ -2968,6 +2986,10 @@ function showAdmin(){
     describePasswordState();
     describeBuiltIn();
     if(typeof Dashboard !== 'undefined') Dashboard.prepareBin();
+    if(typeof Importer !== 'undefined') Importer.prepare();
+    const inDb = typeof AxisDb !== 'undefined' && AxisDb.on();
+    document.getElementById('db-note').hidden = !inDb;
+    document.querySelectorAll('[data-db-flow]').forEach(e => { e.hidden = inDb; });
   }else{
     // Never leave a typed password sitting in the field behind a Back.
     gatePassword.value = '';
