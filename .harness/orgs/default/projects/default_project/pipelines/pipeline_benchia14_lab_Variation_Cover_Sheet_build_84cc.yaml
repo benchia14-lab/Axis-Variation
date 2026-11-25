@@ -1,0 +1,44 @@
+pipeline:
+  id: pipeline_benchia14_lab_Variation_Cover_Sheet_build_84cc
+  name: pipeline_benchia14_lab_Variation_Cover_Sheet_build_84cc
+  stages:
+    - name: Validate
+      id: validate
+      runtime: cloud
+      platform:
+        os: linux
+        arch: amd64
+      clone:
+        enabled: true
+      cache:
+        enabled: true
+      steps:
+        - name: Install Dependencies
+          id: install_dependencies
+          run:
+            shell: bash
+            script: |-
+              export CI=true
+              node --version
+              npm --version
+              npm ci
+        - name: Syntax Check
+          id: syntax_check
+          run:
+            shell: bash
+            script: |-
+              export CI=true
+              echo "Checking JavaScript syntax..."
+              for file in *.js; do
+                if [ -f "$file" ]; then
+                  node --check "$file" && echo "OK: $file"
+                fi
+              done
+              for file in tools/*.js; do
+                if [ -f "$file" ]; then
+                  node --check "$file" && echo "OK: $file"
+                fi
+              done
+              echo "Syntax check complete."
+  tags:
+    onboarding: "true"
