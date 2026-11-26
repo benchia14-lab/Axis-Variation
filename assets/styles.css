@@ -1360,3 +1360,4 @@ a.banner-home:focus-visible{ outline:2px solid #fff; outline-offset:4px; }
 .office-card > summary::after{ grid-column:5; grid-row:1; }
 .office-missing{ grid-row:2; margin-top:-6px; }
 @media (max-width: 760px){ .office-card > summary::after{ grid-column:3; } .office-missing{ grid-row:auto; } }
+.field-help .ok{ color:#2F6B3F; font-weight:600; } .field-help .err{ color:#A0402E; font-weight:600; }
