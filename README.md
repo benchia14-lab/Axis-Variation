@@ -150,6 +150,13 @@ in the comment.
 The letter on the right is the document, not a mock-up of it — the same markup
 is what gets captured into the PDF.
 
+## Who can see what
+
+Everyone who signs in gets a profile; the administrator gives each a level
+(Administrator, Editor, View only, No access) and the offices and projects it
+covers, under **Administrator settings → Permissions**. Nothing is restricted
+until someone is made an Administrator. See [docs/PERMISSIONS.md](docs/PERMISSIONS.md).
+
 ## What comes from where
 
 Everything narrows in one order — **state, then project, then variation
@@ -199,10 +206,10 @@ anyone who asks for it.
 3. **Put it online** — [docs/DEPLOY-NETLIFY.md](docs/DEPLOY-NETLIFY.md). Do this
    before the flows: they need the site's address baked into a CORS header.
 4. **Build the flows** — [docs/POWER-AUTOMATE-SETUP.md](docs/POWER-AUTOMATE-SETUP.md).
-5. **Paste the flow URLs** — Settings → Administrator settings → A: the two
+5. **Paste the flow URLs** — Settings → Administrator settings → Power Automate flows: the two
    boxes (File the PDF, Write professionally), then **Save endpoints**. Check it
    by downloading a PDF and seeing it land in the project's folder.
-6. **Lock the administrator screen** — Settings → Administrator settings → C →
+6. **Lock the administrator screen** — Settings → Administrator settings → Password →
    **Create the file**, drop
    the downloaded `settings-password.js` into `assets/`, deploy again. Optional,
    and off until you set it. [docs/SETTINGS-PASSWORD.md](docs/SETTINGS-PASSWORD.md)

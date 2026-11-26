@@ -86,14 +86,32 @@ const AxisDb = (function(){
     return row;
   }
 
+  /* What the person signed in may see and change (assets/access.js). Every
+     read below is narrowed to it and every write checked against it, so the
+     screens need not each remember to. `all` is for the permissions screen
+     itself, which has to list every project to hand them out. */
+  const access = () => (typeof Access !== 'undefined' ? Access : null);
+  function mayChange(state, projectId){
+    const a = access();
+    if(a && !a.canEdit(state, projectId)){
+      throw new Error(a.level() === 'viewer'
+        ? 'You have view-only access, so nothing can be saved. Ask the administrator if you need to make changes.'
+        : 'You do not have access to change ' + (projectId ? 'this project' : 'projects in ' + state) + '.');
+    }
+  }
+
   // every project for an office, inactive ones included (the caller filters)
-  async function listProjects(state){
+  async function listProjects(state, opts){
+    const a = access();
+    if(a && !(opts && opts.all) && !a.canOffice(state)) return [];
     const rows = await rest('av_projects', 'state=' + eq(state) + '&order=title.asc', { headers: headers() }, 'read the projects');
-    return rows.map(projectToApp);
+    const out = rows.map(projectToApp);
+    return a && !(opts && opts.all) ? out.filter(p => a.canProject(state, p.id)) : out;
   }
 
   // new when it has no id; returns the project as saved
   async function saveProject(p){
+    mayChange(p.state || p.stateHint || '', p.id || '');
     const row = projectToRow(p);
     row.updated_at = new Date().toISOString();
     const opts = { method: p.id ? 'PATCH' : 'POST', body: JSON.stringify(row),
@@ -150,9 +168,12 @@ const AxisDb = (function(){
   }
 
   async function listVariations(state, projectId){
+    const a = access();
+    if(a && (!a.canOffice(state) || (projectId && !a.canProject(state, projectId)))) return [];
     const q = 'state=' + eq(state) + (projectId ? '&project_id=' + eq(projectId) : '') + '&order=updated_at.desc';
     const rows = await rest('av_variations', q, { headers: headers() }, 'read the variation log');
-    return rows.map(variationToApp);
+    const out = rows.map(variationToApp);
+    return a ? out.filter(v => a.canProject(state, v.projectId)) : out;
   }
 
   // insert or update by office + project + reference; a file sent with it is
@@ -160,6 +181,7 @@ const AxisDb = (function(){
   async function writeVariation(p){
     const row = variationToRow(p);
     if(!row.state || !row.project_id || !row.variation_ref) throw new Error('A variation needs an office, a project and a reference to be saved.');
+    mayChange(row.state, String(row.project_id));
     if(p.attachment && p.attachment.contentBase64){
       const path = ['variation-files', safe(row.state), row.project_id, safe(row.variation_ref) + '.json'].join('/');
       await upload(path, base64Bytes(p.attachment.contentBase64), 'application/json');
@@ -173,6 +195,8 @@ const AxisDb = (function(){
 
   // the variation file stored with a row, parsed
   async function variationFile(state, projectId, variationRef){
+    const a = access();
+    if(a && !a.canProject(state, projectId)) throw new Error('You do not have access to this project.');
     const rows = await rest('av_variations', 'select=variation_file_path&state=' + eq(state) + '&project_id=' + eq(projectId) +
       '&variation_ref=' + eq(variationRef), { headers: headers() }, 'find the variation');
     const path = rows[0] && rows[0].variation_file_path;
@@ -223,6 +247,50 @@ const AxisDb = (function(){
     return saveProject({ id: projectId, ratesFile: path, ratesName: name, ratesUploadedAt: new Date().toISOString() });
   }
 
+  /* ---- people and what they may do ----------------------------------------- */
+
+  const USER_COLS = 'email,name,level,offices,projects,first_seen,last_seen,updated_by,updated_at';
+  const userToApp = r => ({ email: r.email, name: r.name || '', level: r.level || 'none',
+    offices: Array.isArray(r.offices) ? r.offices : [], projects: r.projects && typeof r.projects === 'object' ? r.projects : {},
+    firstSeen: r.first_seen || '', lastSeen: r.last_seen || '', updatedBy: r.updated_by || '', updatedAt: r.updated_at || '' });
+
+  async function getUser(email){
+    const rows = await rest('av_users', 'select=' + USER_COLS + '&email=' + eq(email), { headers: headers() }, 'read your profile');
+    return rows[0] ? userToApp(rows[0]) : null;
+  }
+  async function listUsers(){
+    const rows = await rest('av_users', 'select=' + USER_COLS + '&order=name.asc', { headers: headers() }, 'read the people');
+    return rows.map(userToApp);
+  }
+  async function hasAdmin(){
+    const rows = await rest('av_users', 'select=email&level=eq.admin&limit=1', { headers: headers() }, 'read the people');
+    return rows.length > 0;
+  }
+  // a first sign-in: the profile, with what new people are given
+  async function addUser(u){
+    await rest('av_users', '', { method: 'POST', body: JSON.stringify({ email: u.email, name: u.name || '', level: u.level || 'none',
+      offices: u.offices || [], projects: u.projects || {} }),
+      headers: headers({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }) }, 'create your profile');
+  }
+  async function touchUser(email, name){
+    await rest('av_users', 'email=' + eq(email), { method: 'PATCH', body: JSON.stringify({ name: name || '', last_seen: new Date().toISOString() }),
+      headers: headers({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }) }, 'update your profile');
+  }
+  async function saveUser(u, by){
+    await rest('av_users', 'email=' + eq(u.email), { method: 'PATCH', body: JSON.stringify({ level: u.level, offices: u.offices,
+      projects: u.projects, updated_by: by || '', updated_at: new Date().toISOString() }),
+      headers: headers({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }) }, 'save the permissions');
+  }
+  async function getSetting(key){
+    const rows = await rest('av_settings', 'select=value&key=' + eq(key), { headers: headers() }, 'read the settings');
+    return rows[0] ? rows[0].value : null;
+  }
+  async function setSetting(key, value, by){
+    await rest('av_settings', 'on_conflict=key', { method: 'POST',
+      body: JSON.stringify({ key: key, value: value, updated_by: by || '', updated_at: new Date().toISOString() }),
+      headers: headers({ 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' }) }, 'save the settings');
+  }
+
   /* ---- the office register ------------------------------------------------- */
 
   // [{ code, ...fields changed from assets/state-register.js }]
@@ -242,5 +310,7 @@ const AxisDb = (function(){
 
   return { on: on, url: () => cfg.url, listProjects: listProjects, saveProject: saveProject, saveRates: saveRates,
            listVariations: listVariations, writeVariation: writeVariation, variationFile: variationFile,
-           download: download, upload: upload, listOffices: listOffices, saveOffices: saveOffices };
+           download: download, upload: upload, listOffices: listOffices, saveOffices: saveOffices,
+           getUser: getUser, listUsers: listUsers, hasAdmin: hasAdmin, addUser: addUser, touchUser: touchUser,
+           saveUser: saveUser, getSetting: getSetting, setSetting: setSetting };
 })();

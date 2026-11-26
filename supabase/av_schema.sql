@@ -99,3 +99,38 @@ alter table public.av_offices enable row level security;
 create policy "av read offices" on public.av_offices for select to anon, authenticated using (true);
 create policy "av add offices" on public.av_offices for insert to anon, authenticated with check (true);
 create policy "av update offices" on public.av_offices for update to anon, authenticated using (true) with check (true);
+
+-- migration "av_users_permissions": a profile for everyone who signs in, and
+-- what they may see and do (Administrator settings → Permissions).
+--   level     admin | editor | viewer | none
+--   offices   ["*"] for every office, or a list of office codes
+--   projects  { "VIC": "*" | ["12", "15"], ... } per office; an office missing
+--             from it means every project in that office
+-- Nothing is restricted until at least one profile is an admin.
+create table public.av_users (
+  email text primary key,
+  name text not null default '',
+  level text not null default 'none' check (level in ('admin','editor','viewer','none')),
+  offices jsonb not null default '[]'::jsonb,
+  projects jsonb not null default '{}'::jsonb,
+  first_seen timestamptz not null default now(),
+  last_seen timestamptz not null default now(),
+  updated_by text not null default '',
+  updated_at timestamptz not null default now()
+);
+alter table public.av_users enable row level security;
+create policy "av read users" on public.av_users for select to anon, authenticated using (true);
+create policy "av add users" on public.av_users for insert to anon, authenticated with check (true);
+create policy "av update users" on public.av_users for update to anon, authenticated using (true) with check (true);
+
+-- app-wide settings; "new_user" holds what a first sign-in is given
+create table public.av_settings (
+  key text primary key,
+  value jsonb not null default 'null'::jsonb,
+  updated_by text not null default '',
+  updated_at timestamptz not null default now()
+);
+alter table public.av_settings enable row level security;
+create policy "av read settings" on public.av_settings for select to anon, authenticated using (true);
+create policy "av add settings" on public.av_settings for insert to anon, authenticated with check (true);
+create policy "av update settings" on public.av_settings for update to anon, authenticated using (true) with check (true);

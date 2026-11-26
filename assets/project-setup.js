@@ -169,7 +169,7 @@ const ProjectSetup = (function(){
     say('Saving…');
     try {
       const change = Object.assign(values, { active: document.getElementById('ps-active').checked });
-      if(editing) change.id = editing.id;
+      if(editing){ change.id = editing.id; change.stateHint = editing.state || code; }
       else { change.state = code; change.createdBy = whoAmI(); }
       if(clearRates && !pendingRates) Object.assign(change, { ratesFile: '', ratesName: '', ratesUploadedAt: null });
       let saved = await AxisDb.saveProject(change);
