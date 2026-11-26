@@ -301,10 +301,16 @@ fallback folder keeps such a file somewhere findable instead of failing.
 
 | Field | Value |
 |---|---|
-| Site Address | the site holding the project documents |
+| Site Address | **Enter custom value**, then `@{outputs('Incoming')?['siteUrl']}` |
 | Folder Path | `@{outputs('Folder')}` |
 | File Name | `@{outputs('Incoming')?['fileName']}` |
 | File Content | `@{base64ToBinary(outputs('Incoming')?['pdfBase64'])}` |
+
+**Site Address comes from the app.** Each project names its SharePoint site
+(Project setup → SharePoint site; the list is `assets/sharepoint-sites.js`), and
+the app sends it as `siteUrl` — the project's site, or for a project with none
+set, its office's usual one. With a custom value Power Automate cannot browse
+for the folder, so Folder Path must be the expression above, not picked.
 
 `base64ToBinary` is the whole trick. Hand it the base64 string directly and you
 get a PDF full of text that no reader will open.

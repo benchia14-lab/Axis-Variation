@@ -16,7 +16,7 @@ const ProjectSetup = (function(){
   const statusLine = document.getElementById('ps-status');
   const ratesNow = document.getElementById('ps-rates-now');
   const FIELDS = ['project', 'projectNumber', 'headContractor', 'attention', 'recipientAddress', 'issuedBy',
-                  'position', 'pmEmail', 'clauseRef', 'folderPath'];
+                  'position', 'pmEmail', 'clauseRef', 'folderPath', 'siteUrl'];
   const box = f => document.getElementById('ps-' + f);
   const say = (t, cls) => { statusLine.textContent = t || ''; statusLine.className = 'status-line' + (cls ? ' ' + cls : ''); };
 
@@ -43,8 +43,8 @@ const ProjectSetup = (function(){
      name all go; what is left starts with / and has no / at the end. */
   function cleanFolderPath(raw){
     let text = String(raw || '').trim().replace(/^["'<]+|["'>]+$/g, '');
-    if(!text) return { path: '', note: '' };
-    let note = '';
+    if(!text) return { path: '', note: '', site: '' };
+    let note = '', site = '';
     const decode = v => { try { return decodeURIComponent(v); } catch(e){ return v; } };
     if(/^https?:\/\//i.test(text)){
       let url = null;
@@ -61,23 +61,49 @@ const ProjectSetup = (function(){
           text = text.replace(/^\/:[a-z]:\/r(?=\/)/i, '');
         }
         note = 'Cut down from the SharePoint link.';
+        const named = /^\/?((?:sites|teams)\/[^/]+)/i.exec(decode(text));
+        if(named) site = url.origin + '/' + named[1];
       }
     }
     text = decode(text).replace(/\\/g, '/').replace(/\/{2,}/g, '/');
+    const inPath = /^\/?((?:sites|teams)\/[^/]+)(?=\/|$)/i.exec(text);
+    if(inPath && !site) site = inPath[1];
     text = text.replace(/^\/?(?:sites|teams)\/[^/]+(?=\/|$)/i, '');                 // the site
     text = text.replace(/\/Forms\/[^/]*\.aspx$/i, '').replace(/\/[^/]*\.aspx$/i, ''); // the page showing it
     text = text.split('/').map(p => p.trim()).filter(Boolean).join('/');
     const path = text ? '/' + text : '';
     if(!note && path !== String(raw).trim()) note = 'Tidied into the form the filing flow needs.';
-    return { path: path, note: path ? note : '' };
+    return { path: path, note: path ? note : '', site: site };
   }
 
   const folderBox = document.getElementById('ps-folderPath');
   const folderHelp = folderBox.parentNode.querySelector('.field-help');
   const folderHelpText = folderHelp.innerHTML;
+  /* the site: the listed sites, plus whatever a project already names */
+  const siteBox = document.getElementById('ps-siteUrl');
+  function fillSites(current, office){
+    const sites = typeof SharePointSites !== 'undefined' ? SharePointSites.all() : [];
+    const known = current && typeof SharePointSites !== 'undefined' ? SharePointSites.find(current) : null;
+    siteBox.innerHTML = '<option value="">Choose the SharePoint site…</option>' +
+      sites.map(s => '<option value="' + escapeHtml(s.url) + '">' + escapeHtml(s.name) + ' — ' + escapeHtml(s.url.replace(/^https:\/\//, '')) + '</option>').join('') +
+      (current && !known ? '<option value="' + escapeHtml(current) + '">' + escapeHtml(current) + '</option>' : '');
+    siteBox.value = known ? known.url : (current || (typeof SharePointSites !== 'undefined' ? SharePointSites.forOffice(office) : ''));
+  }
+  // a site named in a pasted link: one of the list, or added to it
+  function pickSite(text){
+    if(!text || typeof SharePointSites === 'undefined') return '';
+    const s = SharePointSites.find(text);
+    if(s){ siteBox.value = s.url; return s.name; }
+    const full = /^https?:/i.test(text) ? text : 'https://axisplumbingptyltd.sharepoint.com/' + text.replace(/^\//, '');
+    fillSites(full, '');
+    return full;
+  }
+
   function tidyFolderBox(){
     const out = cleanFolderPath(folderBox.value);
     if(out.path && out.path !== folderBox.value) folderBox.value = out.path;
+    const siteName = out.site ? pickSite(out.site) : '';
+    if(siteName) out.note = (out.note ? out.note + ' ' : '') + 'Site: ' + siteName + '.';
     folderHelp.innerHTML = out.note
       ? '<span class="' + (out.path ? 'ok' : 'err') + '">' + escapeHtml(out.note) + '</span> ' + folderHelpText
       : folderHelpText;
@@ -117,7 +143,8 @@ const ProjectSetup = (function(){
     clearRates = false;
     document.getElementById('ps-kicker').textContent = project ? 'Project setup' : 'New project · ' + (currentState ? currentState.code : '');
     document.getElementById('ps-title').textContent = project ? (project.project || 'Project') : 'Set up a project';
-    FIELDS.forEach(f => { box(f).value = project ? (project[f] || '') : ''; box(f).classList.remove('field-invalid'); });
+    fillSites(project ? project.siteUrl : '', project ? project.state : (currentState ? currentState.code : ''));
+    FIELDS.forEach(f => { if(f !== 'siteUrl') box(f).value = project ? (project[f] || '') : ''; box(f).classList.remove('field-invalid'); });
     document.getElementById('ps-active').checked = project ? project.active !== false : true;
     describeRates();
     folderHelp.innerHTML = folderHelpText;
@@ -162,6 +189,13 @@ const ProjectSetup = (function(){
       return;
     }
     folderBox.classList.remove('field-invalid');
+    if(values.folderPath && !values.siteUrl){
+      siteBox.classList.add('field-invalid');
+      siteBox.focus();
+      say('Choose the SharePoint site the folder is on.', 'err');
+      return;
+    }
+    siteBox.classList.remove('field-invalid');
     const code = editing ? editing.state : (currentState && currentState.code);
     if(!code){ say('Pick an office first.', 'err'); return; }
     const button = document.getElementById('ps-save');

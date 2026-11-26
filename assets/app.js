@@ -1314,6 +1314,17 @@ async function assemblePdf(canvases, externals, level, cache){
 // downloaded, so the worst case is filing it by hand.
 const FILE_SIZE_WARN_BYTES = 20 * 1024 * 1024;
 
+// The SharePoint site a project's PDFs go to (assets/sharepoint-sites.js):
+// set in Project setup; for a project set up before there was a choice, the
+// site its folder path names, or the office's usual site.
+function filingSite(){
+  const p = selectedProject || {};
+  if(p.siteUrl) return p.siteUrl;
+  if(typeof SharePointSites === 'undefined') return '';
+  if(p.sitePath){ const s = SharePointSites.find(p.sitePath); if(s) return s.url; }
+  return SharePointSites.forOffice(currentState ? currentState.code : '');
+}
+
 function buildFilingPayload(pdfBase64, fileName, fileKind){
   return {
     fileName: fileName,
@@ -1332,7 +1343,8 @@ function buildFilingPayload(pdfBase64, fileName, fileKind){
     folderPath: selectedProject ? (selectedProject.folderPath || '') : '',
     folderServerPath: selectedProject ? (selectedProject.folderServerPath || '') : '',
     sitePath: selectedProject ? (selectedProject.sitePath || '') : '',
-    siteUrl: selectedProject ? (selectedProject.siteUrl || '') : '',
+    // the site Create file writes to: the project's, else the office's usual one
+    siteUrl: filingSite(),
     variationRef: els['varref'].value.trim(),
     variationDescription: els['variationdesc'].value.trim(),
     headContractor: els['recipient-name'].value.trim(),
