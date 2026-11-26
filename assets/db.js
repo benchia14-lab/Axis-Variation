@@ -67,7 +67,7 @@ const AxisDb = (function(){
   };
 
   function projectToApp(row){
-    const out = { id: String(row.id), state: row.state, active: row.active !== false,
+    const out = { id: String(row.id), state: row.state, active: row.active !== false, deleted: row.deleted === true,
                   ratesUploadedAt: row.rates_uploaded_at || '', legacyId: row.legacy_id || '' };
     Object.keys(PROJECT_FIELDS).forEach(c => { out[PROJECT_FIELDS[c]] = row[c] || ''; });
     return out;
@@ -105,8 +105,53 @@ const AxisDb = (function(){
     const a = access();
     if(a && !(opts && opts.all) && !a.canOffice(state)) return [];
     const rows = await rest('av_projects', 'state=' + eq(state) + '&order=title.asc', { headers: headers() }, 'read the projects');
-    const out = rows.map(projectToApp);
+    // a deleted project (Administrator settings → Projects) is nowhere but there
+    const out = rows.map(projectToApp).filter(p => !p.deleted);
     return a && !(opts && opts.all) ? out.filter(p => a.canProject(state, p.id)) : out;
+  }
+
+  /* ---- every project, for Administrator settings → Projects ------------------ */
+
+  function adminOnly(){
+    const a = access();
+    if(a && !a.isAdmin()) throw new Error('Only an administrator can do that.');
+  }
+
+  // every project in every office, hidden and deleted ones included
+  async function allProjects(){
+    adminOnly();
+    const rows = await rest('av_projects', 'order=state.asc,title.asc', { headers: headers() }, 'read the projects');
+    return rows.map(projectToApp);
+  }
+
+  // how many variations each project has: { projectId: count }
+  async function variationCounts(){
+    const rows = await rest('av_variations', 'select=project_id&deleted=eq.false', { headers: headers() }, 'count the variations');
+    const out = {};
+    rows.forEach(r => { const k = String(r.project_id); out[k] = (out[k] || 0) + 1; });
+    return out;
+  }
+
+  const patch = (table, query, body, what) => rest(table, query, { method: 'PATCH', body: JSON.stringify(body),
+    headers: headers({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }) }, what);
+
+  // to another office, its variations with it
+  async function moveProject(id, to){
+    adminOnly();
+    await patch('av_projects', 'id=' + eq(id), { state: to, updated_at: new Date().toISOString() }, 'move the project');
+    await patch('av_variations', 'project_id=' + eq(id), { state: to }, 'move its variations');
+  }
+
+  // deleted is a mark: the project and its variations stay, to be restored
+  async function setProjectDeleted(id, deleted, by){
+    adminOnly();
+    await patch('av_projects', 'id=' + eq(id), { deleted: !!deleted, deleted_at: deleted ? new Date().toISOString() : null,
+      deleted_by: deleted ? (by || '') : '', updated_at: new Date().toISOString() }, deleted ? 'delete the project' : 'restore the project');
+  }
+
+  async function setProjectActive(id, active){
+    adminOnly();
+    await patch('av_projects', 'id=' + eq(id), { active: !!active, updated_at: new Date().toISOString() }, 'change the project');
   }
 
   // new when it has no id; returns the project as saved
@@ -312,5 +357,7 @@ const AxisDb = (function(){
            listVariations: listVariations, writeVariation: writeVariation, variationFile: variationFile,
            download: download, upload: upload, listOffices: listOffices, saveOffices: saveOffices,
            getUser: getUser, listUsers: listUsers, hasAdmin: hasAdmin, addUser: addUser, touchUser: touchUser,
-           saveUser: saveUser, getSetting: getSetting, setSetting: setSetting };
+           saveUser: saveUser, getSetting: getSetting, setSetting: setSetting,
+           allProjects: allProjects, variationCounts: variationCounts, moveProject: moveProject,
+           setProjectDeleted: setProjectDeleted, setProjectActive: setProjectActive };
 })();

@@ -40,6 +40,7 @@ const APP_SCRIPTS = [
   'assets/project-setup.js',
   'assets/importer.js',
   'assets/permissions.js',
+  'assets/admin-projects.js',
   'assets/day-sheets.js',
 ];
 
