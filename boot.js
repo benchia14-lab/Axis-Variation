@@ -30,6 +30,7 @@ const APP_SCRIPTS = [
   'vendor/xlsx.mini.min.js',
   'assets/agreed-rates.js',
   'assets/supabase-config.js',
+  'assets/sharepoint-sites.js',
   'assets/db.js',
   'assets/access.js',
   'assets/app.js',

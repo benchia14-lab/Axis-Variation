@@ -275,26 +275,25 @@ settings exactly as in flow 1.
 Everything below refers to it as `outputs('Incoming')?['fieldName']`. The full
 list of fields is in [§ What the app sends](#what-the-app-sends).
 
-### Step 2 — take the folder from SharePoint, not from the browser
+### Step 2 — the folder, from the app
 
-**SharePoint → Get item**:
+Projects are now set up in the app and kept in Supabase, so there is no
+SharePoint list to look the folder up in, and **no Get item step**. (An older
+flow that still has one fails with **NotFound**: it asks the old Variation
+Project Register for an item with the Supabase project's id, which is not
+there.) The app sends the project's folder as `folderPath`, already in the
+form Create file wants — `/Shared Documents/15.Projects_VIC/…` — from
+**Project setup → SharePoint folder for the PDFs**.
 
-- **Site Address** — the register's site
-- **List Name** — `Variation Project Register`
-- **Id** — `@{outputs('Incoming')?['projectId']}`
-
-Then **Compose**, named `Folder`:
+**Compose**, named `Folder`:
 
 ```
-@{coalesce(body('Get_item')?['FolderPath'], outputs('Incoming')?['folderPath'], '/Shared Documents/Variations/Unfiled')}
+@{if(empty(outputs('Incoming')?['folderPath']), '/Shared Documents/Variations/Unfiled', outputs('Incoming')?['folderPath'])}
 ```
 
-The app does send `folderPath`, so you *can* skip this step and use it
-directly. Reading it back from the list is better: it means a person with the
-flow URL can't direct a file into any folder they like by editing the request,
-and a folder corrected in SharePoint takes effect without anyone reloading the
-app. The `coalesce` keeps an unmatched project out of the bin by parking it in
-a fallback folder.
+`empty` rather than `coalesce`: a project with no folder set sends an empty
+string, not nothing, and `coalesce` would pass the empty string on. The
+fallback folder keeps such a file somewhere findable instead of failing.
 
 ### Step 3 — write the file
 
@@ -302,10 +301,16 @@ a fallback folder.
 
 | Field | Value |
 |---|---|
-| Site Address | the site holding the project documents |
+| Site Address | **Enter custom value**, then `@{outputs('Incoming')?['siteUrl']}` |
 | Folder Path | `@{outputs('Folder')}` |
 | File Name | `@{outputs('Incoming')?['fileName']}` |
 | File Content | `@{base64ToBinary(outputs('Incoming')?['pdfBase64'])}` |
+
+**Site Address comes from the app.** Each project names its SharePoint site
+(Project setup → SharePoint site; the list is `assets/sharepoint-sites.js`), and
+the app sends it as `siteUrl` — the project's site, or for a project with none
+set, its office's usual one. With a custom value Power Automate cannot browse
+for the folder, so Folder Path must be the expression above, not picked.
 
 `base64ToBinary` is the whole trick. Hand it the base64 string directly and you
 get a PDF full of text that no reader will open.
