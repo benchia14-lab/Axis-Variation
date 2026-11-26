@@ -151,6 +151,62 @@
 </div>
 
 
+<!-- which kind of variation, when + New variation is pressed -->
+<div class="modal-back" id="nv-modal" hidden>
+  <div class="modal nv-modal" role="dialog" aria-modal="true" aria-labelledby="nv-title">
+    <div class="modal-head">
+      <div>
+        <p class="modal-kicker" id="nv-kicker">New variation</p>
+        <h2 id="nv-title">What kind of variation?</h2>
+      </div>
+      <button type="button" class="modal-close" id="nv-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body nv-choices">
+      <button type="button" class="nv-choice" data-type="works">
+        <span class="nv-choice-title">Complete works variation</span>
+        <span class="nv-choice-sub">Drawings, the description of works, inclusions and exclusions, priced on the schedule of rates.</span>
+      </button>
+      <button type="button" class="nv-choice" data-type="daysheet">
+        <span class="nv-choice-title">Day sheet variation</span>
+        <span class="nv-choice-sub">Drop in the signed day sheets: each one is read, you check what was read, and it goes onto the variation.</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- checking what was read off a day sheet before it goes onto the variation -->
+<div class="modal-back" id="dsr-modal" hidden>
+  <div class="modal dsr-modal" role="dialog" aria-modal="true" aria-labelledby="dsr-title">
+    <div class="modal-head">
+      <div>
+        <p class="modal-kicker" id="dsr-kicker">Day sheet</p>
+        <h2 id="dsr-title">Check the day sheet</h2>
+        <p class="modal-sub" id="dsr-sub"></p>
+      </div>
+      <button type="button" class="modal-close" id="dsr-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body dsr-body">
+      <div class="dsr-view" id="dsr-view"></div>
+      <div class="dsr-side">
+        <div class="status-line" id="dsr-status"></div>
+        <div class="field"><label for="dsr-number">Day sheet no. <span class="dsr-found" id="dsr-number-found"></span></label>
+          <input type="text" id="dsr-number" class="mono-input"></div>
+        <div class="field"><label for="dsr-date">Date <span class="dsr-found" id="dsr-date-found"></span></label>
+          <input type="text" id="dsr-date"></div>
+        <div class="field"><label for="dsr-description">Description <span class="dsr-found" id="dsr-description-found"></span></label>
+          <textarea id="dsr-description"></textarea></div>
+        <div class="field"><label for="dsr-approvedBy">Approved by <span class="dsr-found" id="dsr-approvedBy-found"></span></label>
+          <input type="text" id="dsr-approvedBy"></div>
+        <details class="dsr-text"><summary>Text read off the day sheet</summary><pre id="dsr-text"></pre></details>
+        <div class="dsr-actions">
+          <button type="button" class="print-btn" id="dsr-verify">Verified — add to the variation</button>
+          <button type="button" class="refresh-btn" id="dsr-skip">Leave this one out</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ============ 1c · ONE PROJECT'S VARIATIONS ============ -->
 <div class="board" id="view-dashboard" hidden>
   <header class="site-banner">
@@ -282,6 +338,7 @@
     <button class="back-link" id="back-to-picker" type="button">&larr; Back to the project</button>
     <div class="brand"><span class="brand-mark"></span><h1>Axis Variations</h1></div>
     <div class="subhead">Fill in the fields — the letter on the right updates as you go</div>
+    <div class="vtype-badge daysheet-only">Day sheet variation <button type="button" class="link-btn" id="vtype-switch">make it a complete works variation</button></div>
 
     <div class="vf-open-bar">
       <span class="vf-open-label">Carry on with a saved variation:</span>
@@ -448,7 +505,8 @@
 
     <!-- ---- 4 · DRAWINGS ---- -->
     <div class="form-section">
-      <div class="form-section-head"><span class="form-section-num">4</span><p class="form-section-title">Drawing &amp; day sheet reference</p></div>
+      <div class="form-section-head"><span class="form-section-num">4</span><p class="form-section-title"><span class="works-only">Drawing &amp; day sheet reference</span><span class="daysheet-only">Day sheets</span></p></div>
+      <div class="works-only">
       <div class="dwg-editor">
         <div class="dwg-row dwg-row-head">
           <div class="dwg-col">Drawing No.</div>
@@ -461,8 +519,15 @@
       </div>
       <button class="add-row-btn" id="dwg-add-btn" type="button">+ Add drawing</button>
       <div class="ac-hint">Press Enter in a field to jump to (or add) the next row</div>
+      </div>
 
-      <p class="form-subtitle">Day sheet reference</p>
+      <label class="drop-zone ds-drop daysheet-only" id="ds-drop">
+        <input type="file" id="ds-drop-file" multiple accept="application/pdf,image/*">
+        <span class="dz-main">Drop the signed day sheets here, or <u>browse</u></span>
+        <span class="dz-sub">PDF, photo or scan. Each one is read and shown to you to check before it goes onto the variation.</span>
+      </label>
+
+      <p class="form-subtitle"><span class="works-only">Day sheet reference</span><span class="daysheet-only">Day sheets on this variation</span></p>
       <div class="dwg-editor">
         <div class="dwg-row ds-row dwg-row-head">
           <div class="dwg-col">Day Sheet No.</div>

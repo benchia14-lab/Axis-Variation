@@ -1553,12 +1553,44 @@ printBtn.addEventListener('click', () => {
 
 const LOG_FIELDS = textIds.concat(['desc-raw']);
 
+/* What kind of variation this is: 'works' (complete works -- drawings,
+   description, scope, priced on the schedule) or 'daysheet' (built from signed
+   day sheets dropped in on the cover sheet). Chosen in the window + New
+   variation opens; saved with the variation. */
+let variationType = 'works';
+function setVariationType(type){
+  variationType = type === 'daysheet' ? 'daysheet' : 'works';
+  document.body.classList.toggle('vt-daysheet', variationType === 'daysheet');
+}
+
+// The window + New variation opens: complete works or day sheets. `then` is
+// handed the choice; closing the window chooses nothing.
+const newVariationModal = document.getElementById('nv-modal');
+let newVariationThen = null;
+function chooseVariationType(then, kicker){
+  newVariationThen = then;
+  document.getElementById('nv-kicker').textContent = kicker || 'New variation';
+  newVariationModal.hidden = false;
+  newVariationModal.querySelector('.nv-choice').focus();
+}
+newVariationModal.querySelectorAll('.nv-choice').forEach(b => b.addEventListener('click', () => {
+  newVariationModal.hidden = true;
+  const then = newVariationThen;
+  newVariationThen = null;
+  if(then) then(b.getAttribute('data-type'));
+}));
+document.getElementById('nv-close').addEventListener('click', () => { newVariationModal.hidden = true; newVariationThen = null; });
+newVariationModal.addEventListener('click', e => { if(e.target === newVariationModal){ newVariationModal.hidden = true; newVariationThen = null; } });
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && !newVariationModal.hidden){ newVariationModal.hidden = true; newVariationThen = null; } });
+document.getElementById('vtype-switch').addEventListener('click', () => { setVariationType('works'); render(); });
+
 function collectFormState(){
   const fields = {};
   LOG_FIELDS.forEach(id => { fields[id] = els[id] ? els[id].value : ''; });
   fields['desc-raw'] = document.getElementById('desc-raw').value;
   return {
     version: 1,
+    type: variationType,
     office: currentState ? currentState.code : '',
     projectId: selectedProject ? selectedProject.id : '',
     fields: fields,
@@ -1592,6 +1624,7 @@ function applyFormState(saved){
   });
   if(!dwgRowsContainer.children.length) addDwgRow();
   setDaySheets(saved && saved.daySheets);
+  setVariationType(saved && saved.type);
 
   if(typeof Stages !== 'undefined') Stages.apply(saved && saved.stages);
   variationStatus = normaliseStatus(saved && saved.status);
@@ -2273,12 +2306,16 @@ function clearVariation(){
   setMode('new');
   renderDwgPreview();
   setDaySheets([]);
+  setVariationType('works');
 }
 
 document.getElementById('reopened-new').addEventListener('click', () => {
   if(currentHasContent() && !confirm('Start a new variation? What is on the form now will be cleared.')) return;
-  clearVariation();
-  els['variationdesc'].focus();
+  chooseVariationType(type => {
+    clearVariation();
+    setVariationType(type);
+    els['variationdesc'].focus();
+  });
 });
 
 /* ==========================================================================

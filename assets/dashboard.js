@@ -793,9 +793,12 @@ const Dashboard = (function(){
     if(!project) return;
     if(currentHasContent() && !confirm('Start a new variation on ' + (project.project || 'this project') +
        '? What is on the form now and not saved will be cleared.')) return;
-    clearVariation();
-    selectProject(project);
-    Stages.go('cover');
+    chooseVariationType(type => {
+      clearVariation();
+      setVariationType(type);
+      selectProject(project);
+      Stages.go('cover');
+    }, 'New variation · ' + (project.project || ''));
   });
 
   document.getElementById('db-refresh').addEventListener('click', () => loadProject());

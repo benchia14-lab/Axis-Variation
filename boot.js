@@ -37,6 +37,7 @@ const APP_SCRIPTS = [
   'assets/dashboard.js',
   'assets/project-setup.js',
   'assets/importer.js',
+  'assets/day-sheets.js',
 ];
 
 // app.js starts the app once the page has loaded. Loaded from here, the page loaded long ago,

@@ -124,6 +124,20 @@ issued at.
 flow, which writes it into that project's SharePoint folder. The line under the
 button says which of those happened.
 
+### Day sheet variations
+
+**+ New variation** asks which kind: a **complete works variation** (everything
+above) or a **day sheet variation**. A day sheet variation keeps the reference
+details but drops the drawings and description boxes for a drop area for the
+signed day sheets. Each sheet dropped in opens beside what was read off it — the
+day sheet number, date, description and who approved it. A PDF with text in it
+is read directly; a scan or photo is read by OCR in the browser
+(`vendor/tesseract`, nothing is sent anywhere). Correct anything that is wrong
+and press **Verified**: only then does it go into the day sheet table, with the
+file attached on the Documentation step. Handwriting reads poorly, so each box
+says whether it was found. The badge on the cover sheet switches a variation
+back to complete works.
+
 The letter on the right is the document, not a mock-up of it — the same markup
 is what gets captured into the PDF.
 
