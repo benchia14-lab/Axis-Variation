@@ -138,6 +138,15 @@ file attached on the Documentation step. Handwriting reads poorly, so each box
 says whether it was found. The badge on the cover sheet switches a variation
 back to complete works.
 
+Several day sheets can go in at once — several files, or one PDF of several
+pages: when its pages carry different day sheet numbers it is split into one
+day sheet per page, each filed as its own one-page PDF. A date that cannot be
+read is picked on a calendar. On **Schedule of rates**, a day sheet variation
+gets one schedule per day sheet, opened on the labour rates. Any rate line can
+be taken more than once (**+ another person** on labour lines, **+ again**
+elsewhere), so each person's hours go on a line of their own with their name
+in the comment.
+
 The letter on the right is the document, not a mock-up of it — the same markup
 is what gets captured into the PDF.
 

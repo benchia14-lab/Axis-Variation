@@ -73,7 +73,7 @@ const Stages = (function(){
     if(side) side.scrollTop = 0;
     if(next === 'cover') render();
     if(next === 'scope') renderScope();
-    if(next === 'rates'){ renderRates(); ensureRates(); }
+    if(next === 'rates'){ daySheetSchedules(); renderRates(); ensureRates(); }
     if(next === 'docs') renderDocs();
     if(next === 'review') enterReview();
   }
@@ -436,6 +436,14 @@ const Stages = (function(){
 
      Any line can carry a comment, and its rate can be adjusted for this
      variation; the contract rate stays alongside it so the change shows.
+
+     A line can be taken more than once ("+ again"): Tradesman Normal Time
+     for each person on a day sheet, say, each with their name in the comment
+     and their own hours. The copies are kept in `measured` under their own
+     keys, with `of` naming the line they repeat.
+
+     A day sheet variation gets a schedule per day sheet, made when the rates
+     step opens, and opens on the labour rates: day sheets are hours per person.
   ======================================================================== */
 
   const MASTER_SOR = (typeof SCHEDULE_OF_RATES !== 'undefined') ? SCHEDULE_OF_RATES
@@ -453,13 +461,22 @@ const Stages = (function(){
     return {
       id: newId(),
       name: name,
-      measured: {},          // key -> { section, d, u, r, r0, c, add, ded }
+      measured: {},          // key -> { section, d, u, r, r0, c, add, ded[, of, n] }; of/n on a repeated line
       percents: {},          // key -> { section, d, percent }, the prelims applied
       pct: {},               // key -> the percentage typed for a prelim, applied or not
       extras: [],            // { id, d, c, u, r, add, ded }
-      notes: ''
+      notes: '',
+      daySheet: ''           // on a day sheet variation, the day sheet this schedule prices
     };
   }
+
+  // the repeats of a line on a schedule, in the order they were added
+  function copiesOf(sch, k){
+    return Object.keys(sch.measured).filter(x => sch.measured[x].of === k)
+      .sort((a, b) => num(sch.measured[a].n) - num(sch.measured[b].n));
+  }
+  let copySeq = 0;
+  const copyKey = (k, n) => k + '\u0001' + n;
 
   let book = null;           // { schedules: [...], active, gstPercent }
   let rates = null;          // the schedule on the open tab
@@ -480,8 +497,8 @@ const Stages = (function(){
       const lines = [];
       s.lines.forEach(l => {
         if(l.percent !== undefined) return;
-        const e = sch.measured[keyOf(s.title, l.d)];
-        if(isMeasured(e)) lines.push(lineCalc(e));
+        const k = keyOf(s.title, l.d);
+        [k].concat(copiesOf(sch, k)).forEach(x => { if(isMeasured(sch.measured[x])) lines.push(lineCalc(sch.measured[x])); });
       });
       if(lines.length) sections.push({ title: s.title, lines: lines, total: lines.reduce((n, l) => n + l.amount, 0) });
     });
@@ -577,6 +594,7 @@ const Stages = (function(){
     const copy = JSON.parse(JSON.stringify(rates));
     copy.id = newId();
     copy.name = (rates.name || 'Schedule') + ' (copy)';
+    copy.daySheet = '';
     copy.extras.forEach(e => { e.id = newId(); });
     book.schedules.splice(book.active + 1, 0, copy);
     openTab(book.active + 1);
@@ -630,12 +648,18 @@ const Stages = (function(){
   // touched: measured, commented on, or re-rated
   const touched = e => !!e && (isMeasured(e) || (e.c || '').trim() || num(e.r) !== num(e.r0));
 
+  // a line or any of its repeats
+  const anyOf = (k, test) => [k].concat(copiesOf(rates, k)).some(x => test(rates.measured[x]));
+
   function measuredIn(s){
     return s.lines.filter(l => {
       if(l.percent !== undefined) return !!rates.percents[keyOf(s.title, l.d)];
-      return isMeasured(rates.measured[keyOf(s.title, l.d)]);
+      return anyOf(keyOf(s.title, l.d), isMeasured);
     }).length;
   }
+
+  // labour lines are hours per person: the comment is who
+  const isLabour = s => /labou?r/i.test(s.title);
 
   function textInput(value, ph, cls, onInput){
     const i = el('input');
@@ -663,9 +687,10 @@ const Stages = (function(){
     });
   }
 
-  function scheduleRow(s, l, words){
-    const k = keyOf(s.title, l.d);
-    const row = el('div', 'sor-row');
+  function scheduleRow(s, l, words, repeat){
+    const base = keyOf(s.title, l.d);
+    const k = repeat || base;
+    const row = el('div', 'sor-row' + (repeat ? ' sor-row-copy' : ''));
     const desc = el('div', 'sor-desc');
     markWords(desc.appendChild(el('span', 'sor-d')), l.d, words || []);
 
@@ -730,13 +755,36 @@ const Stages = (function(){
     const reset = adj.appendChild(el('button', 'sor-reset', 'reset'));
     reset.type = 'button';
     reset.title = 'Back to the contract rate';
+    if(repeat){
+      // a repeat: the same item again, removed on its own
+      const rm = meta.appendChild(el('button', 'sor-again sor-again-rm', 'remove'));
+      rm.type = 'button';
+      rm.title = 'Remove this line';
+      rm.addEventListener('click', () => { delete rates.measured[k]; buildRatesEditor(); updateRates(); });
+    } else {
+      const again = meta.appendChild(el('button', 'sor-again', isLabour(s) ? '+ another person' : '+ again'));
+      again.type = 'button';
+      again.title = isLabour(s) ? 'The same rate again, for another person' : 'The same item again, on a line of its own';
+      again.addEventListener('click', () => {
+        const n = Date.now() * 100 + (copySeq++ % 100);
+        const key = copyKey(base, n);
+        rates.measured[key] = { section: s.title, d: l.d, u: l.u, r: l.r, r0: l.r, c: '', add: '', ded: '', of: base, n: n };
+        // a filter on measured lines would hide the new, empty one
+        buildRatesEditor();
+        updateRates();
+        const made = sorSections.querySelector('[data-key="' + CSS.escape(key) + '"]');
+        const box = made && made.parentNode.querySelector('.sor-c');
+        if(box) box.focus();
+      });
+    }
     row.appendChild(desc);
     const cur = rates.measured[k] || {};
     const entry = () => rates.measured[k] ||
       (rates.measured[k] = { section: s.title, d: l.d, u: l.u, r: l.r, r0: l.r, c: '', add: '', ded: '' });
     const sync = () => {
       const e = rates.measured[k];
-      if(e && !touched(e)) delete rates.measured[k];
+      // a repeat stays until it is removed, filled in or not
+      if(e && !e.of && !touched(e)) delete rates.measured[k];
       row.classList.toggle('on', isMeasured(rates.measured[k]));
       const adjusted = !!rates.measured[k] && num(rates.measured[k].r) !== num(rates.measured[k].r0);
       rateBox.classList.toggle('adjusted', adjusted);
@@ -745,7 +793,7 @@ const Stages = (function(){
     };
     const set = (field, v) => { entry()[field] = v; sync(); };
 
-    row.appendChild(textInput(cur.c, 'Comment…', 'sor-c', v => set('c', v)));
+    row.appendChild(textInput(cur.c, isLabour(s) ? 'Name' : 'Comment…', 'sor-c', v => set('c', v)));
 
     const rateBox = el('div', 'sor-rate-box');
     const rate = textInput(cur.r !== undefined ? cur.r : l.r, String(l.r), 'mono-input sor-r', v => set('r', v));
@@ -788,7 +836,7 @@ const Stages = (function(){
       if(words.length && !matches(words, (s.title + ' ' + (l.group || '') + ' ' + l.d + ' ' + (l.u || '')).toLowerCase())) return false;
       if(only){
         if(l.percent !== undefined) return !!rates.percents[keyOf(s.title, l.d)];
-        return touched(rates.measured[keyOf(s.title, l.d)]);
+        return anyOf(keyOf(s.title, l.d), touched) || copiesOf(rates, keyOf(s.title, l.d)).length > 0;
       }
       return true;
     }) })).filter(f => f.lines.length);
@@ -848,6 +896,7 @@ const Stages = (function(){
             group = l.group;
           }
           grid.appendChild(scheduleRow(s, l, words));
+          copiesOf(rates, keyOf(s.title, l.d)).forEach(ck => grid.appendChild(scheduleRow(s, l, words, ck)));
         });
         box.appendChild(grid);
       }
@@ -972,6 +1021,50 @@ const Stages = (function(){
     sorSummary.innerHTML = html + sumRowsHtml(grandRows(g));
     renderRatesPreview(g);
     render();   // the cover sheet carries the value
+  }
+
+  /* ---- a schedule per day sheet ---------------------------------------------
+     On a day sheet variation, every day sheet on the cover sheet gets a
+     schedule of its own, named after it, made when this step opens. A
+     schedule whose day sheet has gone is removed if nothing is on it, and
+     kept (and still named) if something is. A new schedule opens on the
+     labour rates, where the hours go. */
+  const emptySchedule = sch => !Object.keys(sch.measured).length && !Object.keys(sch.percents).length &&
+    !sch.extras.some(e => e.d.trim()) && !(sch.notes || '').trim();
+
+  function daySheetSchedules(){
+    if(!document.body.classList.contains('vt-daysheet')) return;
+    const sheets = collectDaySheets().filter(d => d.number);
+    if(!sheets.length) return;
+    const nameFor = d => 'Day sheet ' + d.number + (d.date ? ' · ' + dsDateText(d.date) : '');
+    let made = 0;
+    const kept = [];
+    sheets.forEach(d => {
+      const key = refKey(d.number);
+      let sch = book.schedules.find(x => x.daySheet === key);
+      if(!sch){ sch = newSchedule(nameFor(d)); sch.daySheet = key; made++; }
+      else if(/^Day sheet /.test(sch.name)) sch.name = nameFor(d);   // the date may have been added since
+      if(kept.indexOf(sch) === -1) kept.push(sch);
+    });
+    // the rest: schedules not for a day sheet, and those whose day sheet has
+    // gone but have something on them; an empty one of either is dropped
+    book.schedules.forEach(sch => {
+      if(kept.indexOf(sch) !== -1) return;
+      if(!emptySchedule(sch)) kept.push(sch);
+    });
+    book.schedules = kept;
+    book.active = Math.min(book.active, kept.length - 1);
+    rates = book.schedules[book.active];
+    if(made){
+      // open on the labour rates: day sheets are hours per person
+      const labour = SOR.sections.find(isLabour);
+      if(labour){
+        if(servicesFor !== SOR){ servicesFor = SOR; fillServices(); }
+        sorSearch.value = '';
+        sorOnly.checked = false;
+        sorService.value = labour.title;
+      }
+    }
   }
 
   function renderRates(){
@@ -1112,7 +1205,8 @@ const Stages = (function(){
         percents: Object.keys(sch.percents).map(k => sch.percents[k]),
         pct: Object.assign({}, sch.pct),
         extras: sch.extras.map(e => ({ d: e.d, c: e.c, u: e.u, r: e.r, add: e.add, ded: e.ded })),
-        notes: sch.notes
+        notes: sch.notes,
+        daySheet: sch.daySheet || ''
       }))
     };
   }
@@ -1124,7 +1218,12 @@ const Stages = (function(){
       const m = Object.assign({}, e);
       if(m.r0 === undefined) m.r0 = m.r;
       if(m.c === undefined) m.c = '';
-      sch.measured[keyOf(e.section, e.d)] = m;
+      if(m.of){
+        // a repeated line: under its own key, repeating the line it was taken from
+        m.of = keyOf(e.section, e.d);
+        if(!m.n) m.n = Date.now() * 100 + (copySeq++ % 100);
+        sch.measured[copyKey(m.of, m.n)] = m;
+      } else sch.measured[keyOf(e.section, e.d)] = m;
     });
     (saved.percents || []).forEach(p => {
       const kept = Object.assign({}, p);
@@ -1137,6 +1236,7 @@ const Stages = (function(){
     Object.assign(sch.pct, saved.pct || {});
     sch.extras = (saved.extras || []).map(e => Object.assign({ id: newId() }, e, { c: e.c || '' }));
     sch.notes = saved.notes || '';
+    sch.daySheet = saved.daySheet || '';
     return sch;
   }
 
