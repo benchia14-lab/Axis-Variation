@@ -1455,6 +1455,13 @@ const Stages = (function(){
       .sort((a, b) => b.key.length - a.key.length)[0] || null;
   }
 
+  // a day sheet checked and added on the cover sheet: its file goes under it here
+  async function attachDaySheet(file, number){
+    const key = refKey(number);
+    const item = listedDocs().find(it => it.bucket === 'daysheets' && it.key === key) || null;
+    await addFiles('daysheets', [file], item);
+  }
+
   function confirmListedDocs(){
     const missing = listedDocs().filter(it => !filesFor(it).length);
     if(!missing.length) return true;
@@ -2236,6 +2243,7 @@ const Stages = (function(){
     collect: collect,
     apply: apply,
     collectDocs: collectDocs,
+    attachDaySheet: attachDaySheet,
     uploadedRates: uploadedRates,
     applyUploadedRates: applyUploadedRates,
     ensureRates: ensureRates,

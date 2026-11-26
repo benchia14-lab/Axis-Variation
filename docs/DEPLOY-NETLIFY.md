@@ -182,9 +182,8 @@ or the projects dropdown stops loading with what looks like a network error.
 ## 6 · Connect the app
 
 In the deployed site: **Settings** (bottom right of the office picker) → paste
-the two flow URLs → **Save endpoints** → **Test projects flow**.
-
-It should report how many projects came back and name the first one.
+the two flow URLs → **Save endpoints**. There is no test button any more:
+download a PDF from a variation and check it lands in the project's folder.
 
 Then issue one real variation end to end and confirm the PDF appears in the
 right SharePoint folder. The line under the **Download PDF** button tells you

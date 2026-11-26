@@ -327,7 +327,7 @@ function reportMissing(project, filled){
   if(spare.length){
     projectStatus.textContent = 'Missing: ' + names + '. The row does carry ' +
       spare.slice(0, 4).map(c => c.key).join(', ') + (spare.length > 4 ? '…' : '') +
-      ' — if that is where these live, point the app at them in Settings → Match the register columns.';
+      ' — fill the missing details in under Project setup.';
     return;
   }
 
@@ -338,8 +338,7 @@ function reportMissing(project, filled){
     (columns.length > withValues
       ? ' (and ' + columns.filter(c => c.empty).map(c => c.key).join(', ') + ', all empty)'
       : '') +
-    ' — so these details are not in the response. Fix the flow\u2019s Select step, not the app. ' +
-    'Settings → Test projects flow → Show what the flow returned has the detail.';
+    ' — so these details are not in the response. Fix the flow\u2019s Select step, not the app.';
 }
 
 function renderProjectOptions(){
@@ -363,12 +362,11 @@ async function loadProjects(){
 
   if(!Flows.has('projectsUrl')){
     projects = [];
-    projectSelect.innerHTML = '<option value="">No projects flow configured</option>';
-    projectSource.textContent = 'Not connected to SharePoint';
-    projectStatus.textContent = 'This copy of the app has no projects flow set up, so the register cannot be read. '
-      + 'Tell whoever set the app up — the connection is in Administrator settings, not something to fix here.';
+    projectSelect.innerHTML = '<option value="">No project database</option>';
+    projectSource.textContent = 'Not connected';
+    projectStatus.textContent = 'This copy of the app is not connected to the project database, so the projects cannot be read. '
+      + 'Tell whoever set the app up (assets/supabase-config.js).';
     projectStatus.className = 'status-line';
-    document.getElementById('project-connect-wrap').hidden = false;
     setManualMode(true);
     updateFilingNote();
     return;
@@ -388,7 +386,6 @@ async function loadProjects(){
     // for the state we have left must not repopulate the dropdown.
     if(!currentState || currentState.code !== forState) return;
     projects = rows;
-    document.getElementById('project-connect-wrap').hidden = true;
     renderProjectOptions();
     setManualMode(!rows.length);
     projectSelect.disabled = !rows.length;
@@ -855,9 +852,7 @@ aiBtn.addEventListener('click', async () => {
     aiStatus.textContent = 'Description generated — edit it freely before downloading.';
     aiStatus.className = 'status-line ok';
   } catch(err){
-    // Short, because this is the form, not the administrator's screen. The
-    // full diagnosis is one click away under Connect to the flows, where
-    // somebody can actually act on it.
+    // Short, because this is the form, not the administrator's screen.
     aiStatus.textContent = 'The wording flow is not available right now \u2014 '
       + Flows.plainMessage(err) + '. Your notes are untouched; write the description '
       + 'directly, or use them as they are.';
@@ -1553,12 +1548,44 @@ printBtn.addEventListener('click', () => {
 
 const LOG_FIELDS = textIds.concat(['desc-raw']);
 
+/* What kind of variation this is: 'works' (complete works -- drawings,
+   description, scope, priced on the schedule) or 'daysheet' (built from signed
+   day sheets dropped in on the cover sheet). Chosen in the window + New
+   variation opens; saved with the variation. */
+let variationType = 'works';
+function setVariationType(type){
+  variationType = type === 'daysheet' ? 'daysheet' : 'works';
+  document.body.classList.toggle('vt-daysheet', variationType === 'daysheet');
+}
+
+// The window + New variation opens: complete works or day sheets. `then` is
+// handed the choice; closing the window chooses nothing.
+const newVariationModal = document.getElementById('nv-modal');
+let newVariationThen = null;
+function chooseVariationType(then, kicker){
+  newVariationThen = then;
+  document.getElementById('nv-kicker').textContent = kicker || 'New variation';
+  newVariationModal.hidden = false;
+  newVariationModal.querySelector('.nv-choice').focus();
+}
+newVariationModal.querySelectorAll('.nv-choice').forEach(b => b.addEventListener('click', () => {
+  newVariationModal.hidden = true;
+  const then = newVariationThen;
+  newVariationThen = null;
+  if(then) then(b.getAttribute('data-type'));
+}));
+document.getElementById('nv-close').addEventListener('click', () => { newVariationModal.hidden = true; newVariationThen = null; });
+newVariationModal.addEventListener('click', e => { if(e.target === newVariationModal){ newVariationModal.hidden = true; newVariationThen = null; } });
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && !newVariationModal.hidden){ newVariationModal.hidden = true; newVariationThen = null; } });
+document.getElementById('vtype-switch').addEventListener('click', () => { setVariationType('works'); render(); });
+
 function collectFormState(){
   const fields = {};
   LOG_FIELDS.forEach(id => { fields[id] = els[id] ? els[id].value : ''; });
   fields['desc-raw'] = document.getElementById('desc-raw').value;
   return {
     version: 1,
+    type: variationType,
     office: currentState ? currentState.code : '',
     projectId: selectedProject ? selectedProject.id : '',
     fields: fields,
@@ -1592,6 +1619,7 @@ function applyFormState(saved){
   });
   if(!dwgRowsContainer.children.length) addDwgRow();
   setDaySheets(saved && saved.daySheets);
+  setVariationType(saved && saved.type);
 
   if(typeof Stages !== 'undefined') Stages.apply(saved && saved.stages);
   variationStatus = normaliseStatus(saved && saved.status);
@@ -2273,26 +2301,26 @@ function clearVariation(){
   setMode('new');
   renderDwgPreview();
   setDaySheets([]);
+  setVariationType('works');
 }
 
 document.getElementById('reopened-new').addEventListener('click', () => {
   if(currentHasContent() && !confirm('Start a new variation? What is on the form now will be cleared.')) return;
-  clearVariation();
-  els['variationdesc'].focus();
+  chooseVariationType(type => {
+    clearVariation();
+    setVariationType(type);
+    els['variationdesc'].focus();
+  });
 });
 
 /* ==========================================================================
    SETTINGS
    ========================================================================== */
 
+// Only two flows are left: everything else is kept in Supabase (assets/db.js).
 const flowInputs = {
-  projectsUrl: document.getElementById('flow-projects'),
   fileUrl: document.getElementById('flow-file'),
-  logReadUrl: document.getElementById('flow-log-read'),
-  logWriteUrl: document.getElementById('flow-log-write'),
-  describeUrl: document.getElementById('flow-describe'),
-  openFileUrl: document.getElementById('flow-open-file'),
-  ratesUrl: document.getElementById('flow-rates')
+  describeUrl: document.getElementById('flow-describe')
 };
 Object.values(flowInputs).forEach(el => { el.dataset.placeholder = el.placeholder; });
 const flowsStatus = document.getElementById('flows-status');
@@ -2302,13 +2330,8 @@ const stateEditorBody = document.getElementById('state-editor-body');
 // Names for the flows as the Settings labels call them, so the notice names
 // what someone is actually looking at.
 const FLOW_LABELS = {
-  projectsUrl: 'Get projects',
   fileUrl: 'File the PDF',
-  logReadUrl: 'Variation log — read',
-  logWriteUrl: 'Variation log — write',
-  describeUrl: 'Write professionally',
-  openFileUrl: 'Open a variation file',
-  ratesUrl: 'Get agreed rates'
+  describeUrl: 'Write professionally'
 };
 
 /* A deployment can hold the trigger URLs server-side (netlify/functions/flow.js).
@@ -2400,197 +2423,163 @@ function loadSettingsForm(){
   describeProxy();
   flowsStatus.textContent = '';
   flowsStatus.className = 'status-line';
-
-  // Offer the mapping straight away when a project list is already loaded, so
-  // someone sent here by the "none of its columns were recognised" message
-  // finds the thing they were sent for rather than an empty panel.
-  if(projects.length) renderColumnMap(projects.map(p => p.raw));
-  else { colmapWrap.hidden = true; rawrowWrap.hidden = true; }
-  colmapStatus.textContent = '';
-  colmapStatus.className = 'status-line';
 }
 
-/* The ordinary Settings screen: the office letterhead, and nothing that could
-   stop the app working for everybody else. */
+/* The ordinary Settings screen: the office register. One entry per office or
+   brand, closed to a line until it is opened, with everything its letterhead
+   and its tile use. Saved to the database (av_offices) so everyone has the
+   same; without one, to this browser. */
+const OFFICE_TEXT = [
+  ['name', 'Name on the tile', 'e.g. SIXA Services VIC'],
+  ['entity', 'Registered company name', 'e.g. Axis Services VIC Pty Ltd'],
+  ['abn', 'ABN', 'Left blank, no ABN line is printed'],
+  ['acn', 'ACN', 'Left blank, no ACN line is printed'],
+  ['phone', 'Phone', 'e.g. 03 9687 5118'],
+  ['email', 'Office email', 'Used when the project has no PM email']
+];
+
+function officeCard(row){
+  const ready = StateRegister.isConfigured(row);
+  const field = (f, label, ph) =>
+    '<div class="field"><label>' + label + '</label>' +
+      '<input type="text" data-field="' + f + '" placeholder="' + escapeHtml(ph) + '" value="' + escapeHtml(row[f] || '') + '"></div>';
+  const area = (f, label, ph, rows) =>
+    '<div class="field"><label>' + label + '</label>' +
+      '<textarea data-field="' + f + '" rows="' + rows + '" placeholder="' + escapeHtml(ph) + '">' + escapeHtml(row[f] || '') + '</textarea></div>';
+  const brand = /^#[0-9a-f]{6}$/i.test(row.brand || '') ? row.brand : '#8A8D8F';
+  return '<details class="office-card' + (ready ? '' : ' unset') + '" data-code="' + escapeHtml(row.code) + '" style="--office-brand:' + escapeHtml(brand) + '">' +
+    '<summary>' +
+      '<span class="office-swatch"></span>' +
+      '<span class="office-code">' + escapeHtml(row.code) + '</span>' +
+      '<span class="office-name">' + escapeHtml(row.name || row.code) + '</span>' +
+      '<span class="office-entity">' + (ready ? escapeHtml(row.entity) : 'Not filled in yet') + '</span>' +
+      '<span class="office-missing"></span>' +
+    '</summary>' +
+    '<div class="office-body">' +
+      '<div class="office-grid">' + OFFICE_TEXT.map(f => field(f[0], f[1], f[2])).join('') + '</div>' +
+      '<div class="office-grid">' +
+        area('address', 'Address', 'Street\nSuburb STATE 0000\nAustralia', 3) +
+        '<div class="field"><label>Logo and colour</label>' +
+          '<div class="office-logo-row">' +
+            '<span class="office-logo">' + (row.logo ? '<img src="' + row.logo + '" alt="">' : '<span>No logo — the group logo is used</span>') + '</span>' +
+            '<input type="hidden" data-field="logo" value="' + escapeHtml(row.logo || '') + '">' +
+            '<label class="refresh-btn office-logo-pick">Upload logo<input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden></label>' +
+            '<button type="button" class="link-btn office-logo-clear"' + (row.logo ? '' : ' hidden') + '>Remove</button>' +
+          '</div>' +
+          '<div class="office-colour"><input type="color" data-field="brand" value="' + brand + '"><span>Colour on its tile and letterhead</span></div>' +
+        '</div>' +
+      '</div>' +
+      area('intro', 'Opening line of the letter', DEFAULT_INTRO, 2) +
+      area('closing', 'Closing line of the letter', DEFAULT_CLOSING, 2) +
+    '</div>' +
+  '</details>';
+}
+
+// what still needs filling in, on the closed line
+function markOfficeCard(card){
+  const v = f => (card.querySelector('[data-field="' + f + '"]').value || '').trim();
+  const missing = [['entity', 'company name'], ['abn', 'ABN'], ['phone', 'phone'], ['address', 'address']]
+    .filter(m => !v(m[0])).map(m => m[1]);
+  card.querySelector('.office-missing').textContent = missing.length ? 'Missing: ' + missing.join(', ') : '';
+  card.querySelector('.office-name').textContent = v('name') || card.getAttribute('data-code');
+  card.querySelector('.office-entity').textContent = v('entity') || 'Not filled in yet';
+  card.classList.toggle('unset', !v('entity'));
+  card.style.setProperty('--office-brand', v('brand') || '#8A8D8F');
+}
+
+// a logo is kept in the register itself, so it is shrunk to letterhead size
+function readLogo(file){
+  return new Promise((ok, bad) => {
+    const reader = new FileReader();
+    reader.onerror = () => bad(new Error('the file could not be read'));
+    reader.onload = () => {
+      if(/svg/.test(file.type)){ ok(reader.result); return; }
+      const img = new Image();
+      img.onerror = () => bad(new Error('that is not a picture this browser can open'));
+      img.onload = () => {
+        const scale = Math.min(1, 240 / img.naturalHeight, 720 / img.naturalWidth);
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.naturalWidth * scale);
+        c.height = Math.round(img.naturalHeight * scale);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        ok(c.toDataURL('image/png'));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function loadRegisterForm(){
-  const rows = StateRegister.rows();
-  stateEditorBody.innerHTML =
-    '<tr><th>Code</th><th>Entity, ABN, ACN</th><th>Phone, email</th><th>Address</th></tr>' +
-    rows.map((row, i) =>
-      '<tr data-index="' + i + '" data-code="' + escapeHtml(row.code) + '">' +
-        '<td class="code">' + escapeHtml(row.code) + '</td>' +
-        '<td>' +
-          '<input type="text" data-field="entity" placeholder="Registered company name" value="' + escapeHtml(row.entity || '') + '">' +
-          '<input type="text" data-field="abn" placeholder="ABN" value="' + escapeHtml(row.abn || '') + '" style="margin-top:4px;">' +
-          '<input type="text" data-field="acn" placeholder="ACN (optional)" value="' + escapeHtml(row.acn || '') + '" style="margin-top:4px;">' +
-        '</td>' +
-        '<td>' +
-          '<input type="text" data-field="phone" placeholder="Phone" value="' + escapeHtml(row.phone || '') + '">' +
-          '<input type="text" data-field="email" placeholder="Email" value="' + escapeHtml(row.email || '') + '" style="margin-top:4px;">' +
-        '</td>' +
-        '<td><textarea data-field="address" placeholder="Street&#10;Suburb STATE 0000" style="min-height:64px;">' + escapeHtml(row.address || '') + '</textarea></td>' +
-      '</tr>'
-    ).join('');
-  statesStatus.textContent = StateRegister.hasOverrides()
-    ? 'This browser is using saved edits rather than the shipped file.'
+  const open = new Set(Array.from(stateEditorBody.querySelectorAll('details[open]')).map(d => d.getAttribute('data-code')));
+  stateEditorBody.innerHTML = StateRegister.rows().map(officeCard).join('');
+  stateEditorBody.querySelectorAll('.office-card').forEach(card => {
+    if(open.has(card.getAttribute('data-code'))) card.open = true;
+    markOfficeCard(card);
+  });
+  const db = typeof AxisDb !== 'undefined' && AxisDb.on();
+  statesStatus.textContent = !db && StateRegister.hasOverrides()
+    ? 'Not connected to the database: this browser is using edits saved on it alone.'
     : '';
   statesStatus.className = 'status-line';
 }
 
+stateEditorBody.addEventListener('input', e => {
+  const card = e.target.closest('.office-card');
+  if(card) markOfficeCard(card);
+});
+stateEditorBody.addEventListener('change', async e => {
+  const pick = e.target.closest('.office-logo-pick input[type=file]');
+  if(!pick || !pick.files[0]) return;
+  const card = pick.closest('.office-card');
+  try {
+    const url = await readLogo(pick.files[0]);
+    card.querySelector('[data-field="logo"]').value = url;
+    card.querySelector('.office-logo').innerHTML = '<img src="' + url + '" alt="">';
+    card.querySelector('.office-logo-clear').hidden = false;
+    statesStatus.textContent = 'Logo added to ' + card.getAttribute('data-code') + ' — Save register to keep it.';
+    statesStatus.className = 'status-line';
+  } catch(err){
+    statesStatus.textContent = 'Could not use that logo: ' + err.message + '.';
+    statesStatus.className = 'status-line err';
+  }
+  pick.value = '';
+});
+stateEditorBody.addEventListener('click', e => {
+  const clear = e.target.closest('.office-logo-clear');
+  if(!clear) return;
+  const card = clear.closest('.office-card');
+  card.querySelector('[data-field="logo"]').value = '';
+  card.querySelector('.office-logo').innerHTML = '<span>No logo — the group logo is used</span>';
+  clear.hidden = true;
+});
+
 function readStateEditor(){
   const base = StateRegister.rows();
-  return Array.from(stateEditorBody.querySelectorAll('tr[data-code]')).map(tr => {
-    const code = tr.getAttribute('data-code');
+  return Array.from(stateEditorBody.querySelectorAll('.office-card[data-code]')).map(card => {
+    const code = card.getAttribute('data-code');
     const row = Object.assign({}, base.find(r => r.code === code) || { code: code });
-    tr.querySelectorAll('[data-field]').forEach(input => {
-      row[input.getAttribute('data-field')] = input.value.trim();
+    card.querySelectorAll('[data-field]').forEach(input => {
+      const f = input.getAttribute('data-field');
+      // the letter lines keep their own line breaks; nothing else needs them trimmed off
+      row[f] = input.value.trim();
     });
+    // the colour picker gives lower case; the register is written in upper
+    if(row.brand) row.brand = row.brand.toUpperCase();
     return row;
   });
 }
 
-/* ---------------------------------------------------------------------------
-   Connect to the flows
-
-   The site can hold the trigger URLs itself, which is the point of
-   netlify/functions/flow.js — but the consequence is that the URL boxes stay
-   empty, and an empty box looks exactly like a broken one. This asks the site
-   what it can run, actually runs what it can, and says so flow by flow, so the
-   answer to "is this working?" is on screen rather than inferred.
---------------------------------------------------------------------------- */
-const connectStatus = document.getElementById('flows-connect-status');
-const connectReport = document.getElementById('flows-connect-report');
-
-function reportRow(name, mark, how, state){
-  const li = document.createElement('li');
-  li.className = state;
-  li.innerHTML = '<span class="fr-name"></span><span class="fr-mark"></span><span class="fr-how"></span>';
-  li.querySelector('.fr-name').textContent = name;
-  li.querySelector('.fr-mark').textContent = mark;
-  li.querySelector('.fr-how').textContent = how;
-  return li;
-}
-
-// Proves a flow end to end where that is free of side effects. The two writing
-// flows are not called: filing a PDF would leave a file in SharePoint and the
-// log write would leave a row, and a connection test has no business doing
-// either. For those, reaching the flow is as far as a test should go.
-/* Which office to test against. Settings can be opened without picking one
-   first, and an empty state is not a harmless default: it reaches the flow as
-   State eq '' and builds a filter SharePoint rejects. Both tests use this. */
-function testState(){
-  return (currentState && currentState.code)
-    || (StateRegister.rows().find(StateRegister.isConfigured) || {}).code
-    || 'VIC';
-}
-
-/* A connection check must send what the app itself sends. Asking a flow to
-   handle an input the app never produces is not a test of anything — it fails
-   on perfectly good flows, and the failure looks exactly like a real one.
-
-   This one cost real hours: the log-read test sent an empty state and an empty
-   project, which built "State eq '' and ProjectId eq " and was rejected by
-   SharePoint, while every genuine call the app made that day succeeded. So the
-   log read is tested with a project that actually exists — the first one the
-   projects flow just returned — and skipped honestly when there is none. */
-async function tryFlow(key, found){
-  if(key === 'projectsUrl'){
-    const where = testState();
-    const rows = await Flows.getProjects(where);
-    found.state = where;
-    found.projects = rows;
-    return rows.length
-      ? rows.length + (rows.length === 1 ? ' project' : ' projects') + ' came back for ' + where
-      : 'reached it, but no ' + where + ' projects came back — check the State column in the list';
-  }
-  if(key === 'logReadUrl'){
-    const project = (found.projects || [])[0];
-    if(!project || project.id === undefined || project.id === ''){
-      // Nothing to ask about. Saying so is better than inventing an empty
-      // project id and calling whatever comes back a verdict on the flow.
-      return 'configured — not called, because no project came back to ask about';
-    }
-    const rows = await Flows.listLog(found.state || testState(), project.id);
-    // listLog hands back the narrowed array with the raw count hung off it.
-    const got = (rows && rows.received !== undefined) ? rows.received : rows.length;
-    return 'reached it for "' + project.project + '" — ' + got + ' row' + (got === 1 ? '' : 's') + ' in the log';
-  }
-  return '';
-}
-
-async function connectFlows(){
-  const buttons = [document.getElementById('flows-connect'), document.getElementById('project-connect')]
-    .filter(Boolean);
-  buttons.forEach(b => { b.disabled = true; });
-  connectReport.hidden = true;
-  connectReport.innerHTML = '';
-  connectStatus.textContent = 'Asking the site which flows it can run…';
-  connectStatus.className = 'status-line';
-
-  const proxy = await Flows.probeProxy();
-  describeProxy();
-
-  const rows = [];
-  // What the projects test learned, so the log-read test can ask about a real
-  // project rather than an imaginary one.
-  const found = {};
-  let worked = 0, failed = 0;
-
-  for(const key of ['projectsUrl', 'fileUrl', 'logReadUrl', 'logWriteUrl', 'describeUrl', 'openFileUrl', 'ratesUrl']){
-    const name = FLOW_LABELS[key];
-    // kept in Supabase: there is no flow to try
-    if(Flows.inDb(key)){
-      rows.push(reportRow(name, 'Supabase', 'kept in Supabase — this flow is no longer used', 'ok'));
-      continue;
-    }
-    const source = Flows.sourceOf(key);
-
-    if(source === 'none'){
-      rows.push(reportRow(name, '—', proxy.available
-        ? 'not set on this site, not built in, nothing pasted here'
-        : 'not built in, and nothing pasted here', 'off'));
-      continue;
-    }
-    const how = source === 'site' ? 'through this site'
-      : source === 'builtin' ? 'built into the app'
-      : 'from the URL saved in this browser';
-    try {
-      const detail = await tryFlow(key, found);
-      worked++;
-      rows.push(reportRow(name, '\u2713', detail ? how + ' — ' + detail : how + ' — configured', 'ok'));
-    } catch(err){
-      failed++;
-      rows.push(reportRow(name, '\u2717', how + ' — ' + (err.message || 'could not be reached'), 'bad'));
-    }
-  }
-
-  rows.forEach(r => connectReport.appendChild(r));
-  connectReport.hidden = false;
-
-  /* What actually happened comes first. The function being absent only matters
-     when nothing else is working — said any earlier it reads as the cause of a
-     failure it had nothing to do with. */
-  if(failed){
-    connectStatus.textContent = worked + ' of ' + (worked + failed) + ' working. '
-      + 'The ones marked \u2717 are configured but answered with an error — the message beside each says what.';
-    connectStatus.className = 'status-line err';
-  }else if(worked){
-    connectStatus.textContent = 'Connected. ' + worked + ' flow' + (worked === 1 ? '' : 's') + ' working.';
-    connectStatus.className = 'status-line ok';
-  }else if(proxy.available){
-    connectStatus.textContent = 'This site answered, but none of its five environment variables are set, '
-      + 'nothing is built into the app, and nothing is pasted here.';
-    connectStatus.className = 'status-line err';
-  }else{
-    connectStatus.textContent = 'Nothing is configured: this site holds no flow URLs, none are built into '
-      + 'the app, and none are pasted here. Build them in below, or paste them above.';
-    connectStatus.className = 'status-line err';
-  }
-
-  buttons.forEach(b => { b.disabled = false; });
-  // Whatever changed, the dropdown should now reflect it.
-  if(currentState) loadProjects();
-  updateFilingNote();
+// the database copy of the register, read once the app starts
+async function refreshOffices(){
+  if(typeof AxisDb === 'undefined' || !AxisDb.on()) return;
+  try {
+    StateRegister.setShared(await AxisDb.listOffices());
+    // the shared copy wins over anything one browser saved before it existed
+    StateRegister.clear();
+    if(!viewPicker.hidden) renderStatePicker();
+    if(!viewSettings.hidden) loadRegisterForm();
+  } catch(e){ console.warn(e); }
 }
 
 /* ---- showing the real URLs ------------------------------------------------
@@ -2618,19 +2607,6 @@ document.getElementById('flows-unlock').addEventListener('click', () => {
   loadSettingsForm();
 });
 
-document.getElementById('flows-connect').addEventListener('click', connectFlows);
-document.getElementById('project-connect').addEventListener('click', async () => {
-  const button = document.getElementById('project-connect');
-  const was = button.textContent;
-  button.textContent = 'Connecting…';
-  await connectFlows();
-  button.textContent = was;
-  if(!Flows.has('projectsUrl')){
-    projectStatus.textContent = 'Still not connected. Open Settings — Connect to the flows there says why.';
-    projectStatus.className = 'status-line err';
-  }
-});
-
 document.getElementById('flows-save').addEventListener('click', () => {
   const next = {};
   // A box the site serves holds an explanation, not a URL. Saving that would
@@ -2653,110 +2629,34 @@ document.getElementById('flows-save').addEventListener('click', () => {
   updateFilingNote();
 });
 
-/* ---- column mapping -------------------------------------------------------
-   Populated from a real answer, so the choices are the column names the flow
-   actually returns rather than a list of what it might have been called. */
-
-const colmapWrap = document.getElementById('colmap-wrap');
-const colmapBody = document.getElementById('colmap-body');
-const colmapStatus = document.getElementById('colmap-status');
-let colmapColumns = [];
-
-const rawrowWrap = document.getElementById('rawrow-wrap');
-const rawrowBody = document.getElementById('rawrow-body');
-
-// The ground truth, before any matching. When the app and the flow disagree
-// about what arrived, this is the thing to read.
-function renderRawRow(columns){
-  if(!columns.length){ rawrowWrap.hidden = true; return; }
-  rawrowBody.innerHTML = '<tr><th>Column</th><th>Value in the first project</th></tr>' +
-    columns.map(c =>
-      '<tr><td class="code" style="white-space:normal;">' + escapeHtml(c.key) + '</td>' +
-      '<td>' + (c.empty
-        ? '<em style="color:#A0402E;">empty — the flow sent this column with nothing in it</em>'
-        : escapeHtml(c.value)) + '</td></tr>'
-    ).join('');
-  rawrowWrap.hidden = false;
-}
-
-function renderColumnMap(sampleRows){
-  colmapColumns = Flows.describeRows(sampleRows);
-  renderRawRow(colmapColumns);
-  if(!colmapColumns.length){ colmapWrap.hidden = true; return; }
-
-  const saved = Flows.get().columnMap || {};
-  colmapBody.innerHTML =
-    '<tr><th>Fills this field</th><th>Column from your register</th></tr>' +
-    Flows.MAPPABLE.map(m => {
-      const auto = colmapColumns.find(c =>
-        (Flows.ALIASES[m.field] || []).some(a => Flows.normKey(a) === Flows.normKey(c.key)));
-      const chosen = saved[m.field] || '';
-      const options = ['<option value="">' +
-          (auto ? 'Matched by name: ' + escapeHtml(auto.key) : '\u2014 not matched \u2014') +
-        '</option>'].concat(colmapColumns.map(c =>
-          '<option value="' + escapeHtml(c.key) + '"' + (chosen === c.key ? ' selected' : '') + '>' +
-            escapeHtml(c.key) + '  \u2014  ' + (c.empty ? '(empty)' : escapeHtml(c.value)) +
-          '</option>'));
-      return '<tr>' +
-        '<td class="code" style="white-space:normal;">' + escapeHtml(m.label) + '</td>' +
-        '<td><select data-field="' + m.field + '">' + options.join('') + '</select></td>' +
-      '</tr>';
-    }).join('');
-  colmapWrap.hidden = false;
-}
-
-document.getElementById('colmap-save').addEventListener('click', () => {
-  const map = {};
-  colmapBody.querySelectorAll('select[data-field]').forEach(sel => {
-    if(sel.value) map[sel.getAttribute('data-field')] = sel.value;
-  });
-  const ok = Flows.save({ columnMap: map });
-  colmapStatus.textContent = ok
-    ? 'Saved. Go back, refresh the project list and pick the project again.'
-    : 'Could not save — this browser is blocking local storage.';
-  colmapStatus.className = ok ? 'status-line ok' : 'status-line err';
-});
-
-document.getElementById('colmap-clear').addEventListener('click', () => {
-  Flows.save({ columnMap: {} });
-  renderColumnMap(projects.length ? projects.map(p => p.raw) : []);
-  colmapStatus.textContent = 'Cleared — back to matching on column names alone.';
-  colmapStatus.className = 'status-line';
-});
-
-document.getElementById('flows-test').addEventListener('click', async () => {
-  const servedBySite = Flows.viaProxy('projectsUrl');
-  const url = servedBySite ? '' : flowInputs.projectsUrl.value.trim();
-  if(!servedBySite && !url){
-    flowsStatus.textContent = 'Paste the projects flow URL first, or use Connect to the flows if this site holds it.';
-    flowsStatus.className = 'status-line err';
-    return;
+document.getElementById('states-save').addEventListener('click', async () => {
+  const edited = readStateEditor();
+  const button = document.getElementById('states-save');
+  if(typeof AxisDb !== 'undefined' && AxisDb.on()){
+    button.disabled = true;
+    statesStatus.textContent = 'Saving the register…';
+    statesStatus.className = 'status-line';
+    try {
+      const list = edited.map(r => ({ code: r.code, details: StateRegister.changes(r) }));
+      await AxisDb.saveOffices(list, (window.AXIS_USER && window.AXIS_USER.name) || '');
+      StateRegister.setShared(list.map(o => Object.assign({}, o.details, { code: o.code })));
+      StateRegister.clear();
+      loadRegisterForm();
+      statesStatus.textContent = 'Saved. Everyone using the app now has these details.';
+      statesStatus.className = 'status-line ok';
+    } catch(err){
+      statesStatus.textContent = 'Not saved — ' + err.message + ' Your changes are still on screen.';
+      statesStatus.className = 'status-line err';
+    }
+  } else {
+    const ok = StateRegister.save(edited);
+    loadRegisterForm();
+    statesStatus.textContent = ok
+      ? 'Saved to this browser (there is no database connected). Use Export to hand the same values to everyone else.'
+      : 'Could not save — this browser is blocking local storage.';
+    statesStatus.className = ok ? 'status-line ok' : 'status-line err';
   }
-  if(!servedBySite){
-    Flows.save({ projectsUrl: url, fileUrl: flowInputs.fileUrl.value, describeUrl: flowInputs.describeUrl.value });
-  }
-  const where = testState();
-  flowsStatus.textContent = 'Asking the flow for ' + where + ' projects…';
-  flowsStatus.className = 'status-line';
-  try {
-    const rows = await Flows.getProjects(where);
-    flowsStatus.textContent = 'Connected. ' + rows.length + ' ' + where +
-      (rows.length === 1 ? ' project' : ' projects') + ' came back' +
-      (rows.length ? ', first is "' + rows[0].project + '".' : '. Check the State column in the SharePoint list.');
-    flowsStatus.className = 'status-line ok';
-    if(rows.length) renderColumnMap(rows.map(r => r.raw));
-  } catch(err){
-    flowsStatus.textContent = err.message || 'The flow could not be reached.';
-    flowsStatus.className = 'status-line err';
-  }
-});
-
-document.getElementById('states-save').addEventListener('click', () => {
-  const ok = StateRegister.save(readStateEditor());
-  statesStatus.textContent = ok
-    ? 'Saved to this browser. Use Export to hand the same values to everyone else.'
-    : 'Could not save — this browser is blocking local storage.';
-  statesStatus.className = ok ? 'status-line ok' : 'status-line err';
+  button.disabled = false;
   renderStatePicker();
 });
 
@@ -2772,8 +2672,22 @@ document.getElementById('states-export').addEventListener('click', () => {
   statesStatus.className = 'status-line ok';
 });
 
-document.getElementById('states-reset').addEventListener('click', () => {
-  if(!confirm('Discard this browser’s edits and go back to the values in assets/state-register.js?')) return;
+document.getElementById('states-reset').addEventListener('click', async () => {
+  const db = typeof AxisDb !== 'undefined' && AxisDb.on();
+  if(!confirm(db
+    ? 'Discard every change made in the app and go back to the values in assets/state-register.js, for everyone?'
+    : 'Discard this browser’s edits and go back to the values in assets/state-register.js?')) return;
+  if(db){
+    try {
+      await AxisDb.saveOffices(StateRegister.shipped().map(r => ({ code: r.code, details: {} })),
+        (window.AXIS_USER && window.AXIS_USER.name) || '');
+      StateRegister.setShared([]);
+    } catch(err){
+      statesStatus.textContent = 'Not reset — ' + err.message;
+      statesStatus.className = 'status-line err';
+      return;
+    }
+  }
   StateRegister.clear();
   loadRegisterForm();
   renderStatePicker();
@@ -2817,7 +2731,7 @@ const urlsSteps = document.getElementById('urls-next-steps');
 function describeBuiltIn(){
   const built = Object.keys(flowInputs).filter(k => !!Flows.builtIn(k));
   document.getElementById('urls-current').textContent = built.length
-    ? built.length + ' of 5 URLs ' + (built.length === 1 ? 'is' : 'are') + ' built into this copy of the app: '
+    ? built.length + ' of ' + Object.keys(flowInputs).length + ' URLs ' + (built.length === 1 ? 'is' : 'are') + ' built into this copy of the app: '
       + built.map(k => FLOW_LABELS[k]).join(', ') + '. Everyone opening this site uses them.'
     : 'No URLs are built into this copy — everyone has to paste their own, or the site has to serve them.';
 }
@@ -2945,35 +2859,8 @@ function markUnlocked(){
    Everything that decides how the app talks to Power Automate lives one door
    further in, because it is shared by everyone using the app and nobody but the
    administrator should be able to change it. */
-/* The one line that answers "is the right build deployed, and does it carry
-   the flows?" — readable by anyone, in a private window, with no password and
-   without naming a single URL. Guessing from whether a dropdown happens to
-   fill is how an hour disappears. */
-function describeBuild(){
-  const el = document.getElementById('build-stamp');
-  const info = (typeof BUILD_INFO !== 'undefined' && BUILD_INFO) ? BUILD_INFO : null;
-  const built = info && info.builtAt ? info.builtAt : '';
-  const names = (info && info.flowNames) || [];
-  const total = 5;
-
-  if(names.length === total){
-    el.className = 'build-stamp good';
-    el.innerHTML = '<strong>All ' + total + ' Power Automate flows are built into this copy.</strong> '
-      + 'Nobody has to paste anything — everyone opening this site uses the same flows.'
-      + (built ? ' <span style="opacity:.75">Built ' + escapeHtml(built) + '.</span>' : '');
-    return;
-  }
-  el.className = 'build-stamp bad';
-  el.innerHTML = '<strong>' + names.length + ' of ' + total + ' flows are built into this copy.</strong> '
-    + (names.length ? 'Present: ' + escapeHtml(names.join(', ')) + '. ' : '')
-    + 'Whoever deployed this needs to build the missing ones in and deploy again — '
-    + 'they cannot be added from here.'
-    + (built ? ' <span style="opacity:.75">Built ' + escapeHtml(built) + '.</span>' : '');
-}
-
 function showSettings(){
   loadRegisterForm();
-  describeBuild();
   showOnly(viewSettings);
 }
 
@@ -2987,9 +2874,6 @@ function showAdmin(){
     describeBuiltIn();
     if(typeof Dashboard !== 'undefined') Dashboard.prepareBin();
     if(typeof Importer !== 'undefined') Importer.prepare();
-    const inDb = typeof AxisDb !== 'undefined' && AxisDb.on();
-    document.getElementById('db-note').hidden = !inDb;
-    document.querySelectorAll('[data-db-flow]').forEach(e => { e.hidden = inDb; });
   }else{
     // Never leave a typed password sitting in the field behind a Back.
     gatePassword.value = '';
@@ -3268,6 +3152,7 @@ applyLogo(uploadedLogo || DEFAULT_LOGO);
 syncRefLock();
 updateModeHint();
 render();
+refreshOffices();
 
 // Ask the site whether it holds the flow URLs for us before drawing a screen
 // that depends on the answer — picking a state fires the projects flow, and it

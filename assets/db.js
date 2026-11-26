@@ -11,6 +11,7 @@
 
      av_projects     one row per project, set up in the app
      av_variations   one row per variation (state + project + reference)
+     av_offices      the office register's details, as changed in Settings
      av-files        bucket: rates/<project>/...  variation-files/<state>/<project>/...
 ============================================================================ */
 
@@ -222,7 +223,24 @@ const AxisDb = (function(){
     return saveProject({ id: projectId, ratesFile: path, ratesName: name, ratesUploadedAt: new Date().toISOString() });
   }
 
+  /* ---- the office register ------------------------------------------------- */
+
+  // [{ code, ...fields changed from assets/state-register.js }]
+  async function listOffices(){
+    const rows = await rest('av_offices', 'select=code,details', { headers: headers() }, 'read the office register');
+    return rows.map(r => Object.assign({}, r.details || {}, { code: r.code }));
+  }
+
+  // one row per office, replaced whole: list is [{ code, details }]
+  async function saveOffices(list, by){
+    const now = new Date().toISOString();
+    const body = list.map(o => ({ code: o.code, details: o.details || {}, updated_by: by || '', updated_at: now }));
+    await rest('av_offices', 'on_conflict=code', { method: 'POST', body: JSON.stringify(body),
+      headers: headers({ 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' }) },
+      'save the office register');
+  }
+
   return { on: on, url: () => cfg.url, listProjects: listProjects, saveProject: saveProject, saveRates: saveRates,
            listVariations: listVariations, writeVariation: writeVariation, variationFile: variationFile,
-           download: download, upload: upload };
+           download: download, upload: upload, listOffices: listOffices, saveOffices: saveOffices };
 })();

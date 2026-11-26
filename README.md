@@ -124,6 +124,20 @@ issued at.
 flow, which writes it into that project's SharePoint folder. The line under the
 button says which of those happened.
 
+### Day sheet variations
+
+**+ New variation** asks which kind: a **complete works variation** (everything
+above) or a **day sheet variation**. A day sheet variation keeps the reference
+details but drops the drawings and description boxes for a drop area for the
+signed day sheets. Each sheet dropped in opens beside what was read off it — the
+day sheet number, date, description and who approved it. A PDF with text in it
+is read directly; a scan or photo is read by OCR in the browser
+(`vendor/tesseract`, nothing is sent anywhere). Correct anything that is wrong
+and press **Verified**: only then does it go into the day sheet table, with the
+file attached on the Documentation step. Handwriting reads poorly, so each box
+says whether it was found. The badge on the cover sheet switches a variation
+back to complete works.
+
 The letter on the right is the document, not a mock-up of it — the same markup
 is what gets captured into the PDF.
 
@@ -176,8 +190,9 @@ anyone who asks for it.
 3. **Put it online** — [docs/DEPLOY-NETLIFY.md](docs/DEPLOY-NETLIFY.md). Do this
    before the flows: they need the site's address baked into a CORS header.
 4. **Build the flows** — [docs/POWER-AUTOMATE-SETUP.md](docs/POWER-AUTOMATE-SETUP.md).
-5. **Paste the flow URLs** — Settings → Power Automate flows, then
-   **Test projects flow**.
+5. **Paste the flow URLs** — Settings → Administrator settings → A: the two
+   boxes (File the PDF, Write professionally), then **Save endpoints**. Check it
+   by downloading a PDF and seeing it land in the project's folder.
 6. **Lock the administrator screen** — Settings → Administrator settings → C →
    **Create the file**, drop
    the downloaded `settings-password.js` into `assets/`, deploy again. Optional,
