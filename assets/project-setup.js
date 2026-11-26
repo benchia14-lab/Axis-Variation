@@ -21,6 +21,7 @@ const ProjectSetup = (function(){
   const say = (t, cls) => { statusLine.textContent = t || ''; statusLine.className = 'status-line' + (cls ? ' ' + cls : ''); };
 
   let editing = null;        // the project being changed, or null for a new one
+  let onSaved = null;        // set by a caller that redraws its own list (Administrator settings → Projects)
   let pendingRates = null;   // { bytes, name, lines } dropped but not yet saved
   let clearRates = false;
 
@@ -136,9 +137,10 @@ const ProjectSetup = (function(){
     }
   }
 
-  function open(project){
+  function open(project, opts){
     if(!on()) return;
     editing = project || null;
+    onSaved = (opts && opts.onSaved) || null;
     pendingRates = null;
     clearRates = false;
     document.getElementById('ps-kicker').textContent = project ? 'Project setup' : 'New project · ' + (currentState ? currentState.code : '');
@@ -211,9 +213,11 @@ const ProjectSetup = (function(){
         say('Saving the schedule of rates…');
         saved = await AxisDb.saveRates(saved.id, pendingRates.bytes, pendingRates.name);
       }
+      const wasNew = !editing, then = onSaved;
       close();
+      if(then){ then(saved); return; }
       await refresh(code);
-      if(!editing && saved.active) location.hash = '#/state/' + encodeURIComponent(code) + '/project/' + encodeURIComponent(saved.id);
+      if(wasNew && saved.active) location.hash = '#/state/' + encodeURIComponent(code) + '/project/' + encodeURIComponent(saved.id);
     } catch(err){
       say('Not saved — ' + (err.message || 'Supabase did not answer') + ' Nothing on the form was lost.', 'err');
     } finally {

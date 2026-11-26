@@ -968,6 +968,7 @@
     <button type="button" class="admin-tab" data-tab="deleted">Deleted variations</button>
     <button type="button" class="admin-tab" data-tab="permissions">Permissions</button>
     <button type="button" class="admin-tab" data-tab="profiles">Profiles</button>
+    <button type="button" class="admin-tab" data-tab="projects">Projects</button>
     <button type="button" class="admin-tab" data-tab="import">Import</button>
   </nav>
   <section class="admin-pane" data-pane="flows" hidden>
@@ -1146,6 +1147,37 @@
     <div class="settings-actions" style="margin-top:0;"><button class="refresh-btn" id="prof-refresh" type="button">Refresh</button></div>
     <div class="prof-wrap"><table class="state-editor-table prof-table"><tbody id="prof-body"></tbody></table></div>
     <div class="status-line" id="prof-status"></div>
+  </div>
+  </section>
+  <section class="admin-pane" data-pane="projects" hidden>
+  <div class="form-section">
+    <div class="form-section-head"><p class="form-section-title">Projects</p></div>
+    <p class="settings-help">Every project in every office. <b>Hide</b> takes one off the projects page and the project
+      list (its variations stay); <b>Move</b> puts it, and its variations, in another office; <b>Delete</b> takes it off
+      everywhere but here, where it can be restored. Tick several to do the same to all of them.</p>
+    <div class="ap-filters">
+      <select id="ap-office"><option value="">Every office</option></select>
+      <input type="text" id="ap-search" placeholder="Find a project, number or folder…">
+      <select id="ap-show">
+        <option value="live">In use and hidden</option>
+        <option value="active">In use only</option>
+        <option value="hidden">Hidden only</option>
+        <option value="deleted">Deleted</option>
+        <option value="all">Everything</option>
+      </select>
+      <button class="refresh-btn" id="ap-refresh" type="button">Refresh</button>
+    </div>
+    <div class="ap-bulk" id="ap-bulk" hidden>
+      <span id="ap-picked"></span>
+      <button class="refresh-btn" type="button" data-bulk="hide">Hide</button>
+      <button class="refresh-btn" type="button" data-bulk="show">Show</button>
+      <select id="ap-move-to"><option value="">Move to…</option></select>
+      <button class="refresh-btn" type="button" data-bulk="delete">Delete</button>
+      <button class="refresh-btn" type="button" data-bulk="restore">Restore</button>
+      <button class="link-btn" type="button" data-bulk="clear">Clear</button>
+    </div>
+    <div class="ap-wrap"><table class="state-editor-table ap-table"><tbody id="ap-body"></tbody></table></div>
+    <div class="status-line" id="ap-status"></div>
   </div>
   </section>
   <section class="admin-pane" data-pane="import" hidden>

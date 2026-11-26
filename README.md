@@ -157,6 +157,14 @@ Everyone who signs in gets a profile; the administrator gives each a level
 covers, under **Administrator settings → Permissions**. Nothing is restricted
 until someone is made an Administrator. See [docs/PERMISSIONS.md](docs/PERMISSIONS.md).
 
+## Managing projects
+
+**Administrator settings → Projects** lists every project in every office —
+with its number, variations, PDF folder and rates — to edit, hide (off the
+projects pages; variations kept), move to another office (its variations go
+with it), or delete (kept, and restorable from the same tab). Tick several to
+do the same to all of them.
+
 ## What comes from where
 
 Everything narrows in one order — **state, then project, then variation

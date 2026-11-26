@@ -2,7 +2,8 @@
    ADMINISTRATOR SETTINGS — the tabs, Permissions and Profiles
    ============================================================================
    The administrator screen is a row of tabs: Power Automate flows, Password,
-   Deleted variations, Permissions, Profiles, Import. The tab last open is
+   Deleted variations, Permissions, Profiles, Projects (assets/admin-projects.js),
+   Import. The tab last open is
    remembered for the session.
 
    Profiles lists everyone who has signed in (av_users). Permissions sets, per
@@ -25,6 +26,7 @@ const Permissions = (function(){
     try { sessionStorage.setItem(TAB_KEY, name); } catch(e){}
     if(name === 'permissions') loadPeople();
     if(name === 'profiles') renderProfiles(true);
+    if(name === 'projects' && typeof AdminProjects !== 'undefined') AdminProjects.load();
   }
   tabs.forEach(t => t.addEventListener('click', () => showTab(t.getAttribute('data-tab'))));
 

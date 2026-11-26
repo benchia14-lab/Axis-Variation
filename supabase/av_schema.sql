@@ -134,3 +134,9 @@ alter table public.av_settings enable row level security;
 create policy "av read settings" on public.av_settings for select to anon, authenticated using (true);
 create policy "av add settings" on public.av_settings for insert to anon, authenticated with check (true);
 create policy "av update settings" on public.av_settings for update to anon, authenticated using (true) with check (true);
+
+-- migration "av_projects_deleted": Administrator settings → Projects deletes a
+-- project by marking it, so it and its variations can be restored.
+alter table public.av_projects add column deleted boolean not null default false;
+alter table public.av_projects add column deleted_at timestamptz;
+alter table public.av_projects add column deleted_by text not null default '';
