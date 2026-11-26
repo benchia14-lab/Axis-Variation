@@ -16,7 +16,7 @@ const ProjectSetup = (function(){
   const statusLine = document.getElementById('ps-status');
   const ratesNow = document.getElementById('ps-rates-now');
   const FIELDS = ['project', 'projectNumber', 'headContractor', 'attention', 'recipientAddress', 'issuedBy',
-                  'position', 'pmEmail', 'clauseRef', 'folderPath', 'siteUrl'];
+                  'position', 'pmEmail', 'clauseRef', 'folderPath'];
   const box = f => document.getElementById('ps-' + f);
   const say = (t, cls) => { statusLine.textContent = t || ''; statusLine.className = 'status-line' + (cls ? ' ' + cls : ''); };
 
