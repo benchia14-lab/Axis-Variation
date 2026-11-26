@@ -85,3 +85,17 @@ on conflict (id) do nothing;
 create policy "av read files" on storage.objects for select to anon, authenticated using (bucket_id = 'av-files');
 create policy "av write files" on storage.objects for insert to anon, authenticated with check (bucket_id = 'av-files');
 create policy "av update files" on storage.objects for update to anon, authenticated using (bucket_id = 'av-files') with check (bucket_id = 'av-files');
+
+-- migration "av_offices": the office register (letterhead details) edited in
+-- Settings, shared by everyone. A row holds only what was changed from
+-- assets/state-register.js, keyed by the office code.
+create table public.av_offices (
+  code text primary key,
+  details jsonb not null default '{}'::jsonb,
+  updated_by text not null default '',
+  updated_at timestamptz not null default now()
+);
+alter table public.av_offices enable row level security;
+create policy "av read offices" on public.av_offices for select to anon, authenticated using (true);
+create policy "av add offices" on public.av_offices for insert to anon, authenticated with check (true);
+create policy "av update offices" on public.av_offices for update to anon, authenticated using (true) with check (true);

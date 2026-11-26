@@ -11,6 +11,7 @@ into the project's folder, through the *File the PDF* flow, as before.
 | The variation log | The Variation History list, read by flow 4, written by flow 5 | `av_variations` |
 | Variation files (the form plus its attachments) | Attached to the log row by flow 5, read back by flow 6 | The `av-files` bucket, `variation-files/<office>/<project>/<ref>.json` |
 | Agreed schedules of rates | An Excel file named in the register's `RatesFile` column, fetched by flow 7 | Dropped into the project's setup → `av-files`, `rates/<project>/…` |
+| The office register (letterhead, logo, colour) | Edits saved to one browser, or exported as `assets/state-register.js` | Settings → Office register → **Save register** → `av_offices` |
 | The issued PDF | Filed by flow 2 | **Unchanged** — filed by flow 2 into the project's SharePoint folder |
 
 The Supabase project is **`jpodxbzhzgndujdaqldl`** (the same one as the other
@@ -127,6 +128,11 @@ fields as columns (`project`, `project_number`, `variation_description`,
 `value_ex_gst`, `approved_value`, `approved_date`, `builder_commentary`,
 `deleted`/`deleted_at`/`deleted_by`, `payload` (the whole form, as the app saves
 it), `variation_file_path`, `downloaded_at`, `updated_at`.
+
+**`av_offices`** — one row per office code: `code`, `details` (only the fields
+changed from `assets/state-register.js` — name, entity, ABN, ACN, phone,
+email, address, logo, brand colour, intro, closing), `updated_by`,
+`updated_at`. **Reset to shipped values** empties every row's `details`.
 
 The columns are there to read and report on (Supabase's table editor, or a
 Power BI connection); the app restores a variation from `payload`.

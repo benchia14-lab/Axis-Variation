@@ -1320,3 +1320,43 @@ body.vt-daysheet .works-only{ display:none !important; }
 .dsr-actions .print-btn{ width:auto; margin-top:0; padding:10px 18px; }
 @media (max-width: 860px){ .dsr-body{ grid-template-columns:1fr; } }
 .dsr-actions .refresh-btn{ padding:10px 16px; font-size:13px; }
+
+/* the Axis Services Group logo in every banner goes back to all the offices */
+a.banner-home{ cursor:pointer; border-radius:4px; transition:opacity .15s; }
+a.banner-home:hover{ opacity:.82; }
+a.banner-home:focus-visible{ outline:2px solid #fff; outline-offset:4px; }
+
+/* ---- office register (Settings) ---- */
+.office-list{ display:flex; flex-direction:column; gap:8px; margin:12px 0 16px; }
+.office-card{ background:var(--panel); border:1px solid var(--line); border-left:5px solid var(--office-brand, #8A8D8F); border-radius:4px; }
+.office-card > summary{ list-style:none; display:grid; grid-template-columns:14px 90px minmax(140px,1fr) minmax(160px,1.3fr) auto;
+  gap:12px; align-items:center; padding:11px 14px; cursor:pointer; font-size:13px; }
+.office-card > summary::-webkit-details-marker{ display:none; }
+.office-card > summary::after{ content:'Edit ▾'; font-size:11.5px; color:var(--steel-dark); font-weight:600; }
+.office-card[open] > summary::after{ content:'Close ▴'; }
+.office-card[open] > summary{ border-bottom:1px solid var(--line-soft); }
+.office-swatch{ width:14px; height:14px; border-radius:3px; background:var(--office-brand, #8A8D8F); }
+.office-code{ font-family:var(--font-head); font-weight:700; color:var(--ink); letter-spacing:.02em; }
+.office-name{ font-weight:600; color:var(--ink); }
+.office-entity{ color:var(--muted); }
+.office-card.unset .office-entity{ font-style:italic; }
+.office-missing{ grid-column:3 / -1; font-size:11.5px; color:#8A5A12; }
+.office-missing:empty{ display:none; }
+.office-body{ padding:14px 16px 6px; }
+.office-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:0 16px; }
+.office-body textarea{ min-height:0; }
+.office-logo-row{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.office-logo{ height:56px; min-width:120px; max-width:220px; display:flex; align-items:center; justify-content:center;
+  border:1px dashed var(--line); border-radius:4px; padding:4px 8px; background:#fff; font-size:11.5px; color:var(--muted); }
+.office-logo img{ max-height:48px; max-width:200px; display:block; }
+.office-logo-pick{ cursor:pointer; }
+.office-colour{ display:flex; align-items:center; gap:10px; margin-top:10px; font-size:12px; color:var(--muted); }
+.office-colour input[type=color]{ width:44px; height:30px; padding:2px; border:1px solid var(--line); border-radius:4px; background:#fff; cursor:pointer; }
+@media (max-width: 760px){
+  .office-card > summary{ grid-template-columns:14px 1fr auto; }
+  .office-name, .office-entity{ grid-column:2 / -1; }
+}
+.office-logo-pick{ text-transform:none; letter-spacing:0; font-size:12.5px; font-weight:600; margin:0; display:inline-block; }
+.office-card > summary::after{ grid-column:5; grid-row:1; }
+.office-missing{ grid-row:2; margin-top:-6px; }
+@media (max-width: 760px){ .office-card > summary::after{ grid-column:3; } .office-missing{ grid-row:auto; } }

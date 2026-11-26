@@ -26,7 +26,7 @@
 <div class="picker" id="view-picker" hidden>
   <header class="site-banner">
     <div class="site-banner-inner">
-      <div class="banner-logo" id="banner-logo"></div>
+      <a class="banner-logo banner-home" id="banner-logo" href="#/" title="All offices" aria-label="Axis Services Group — all offices"></a>
       <div class="banner-title">Axis Variations</div>
       <span class="auth-who" id="authWho" hidden></span>
       <button class="banner-btn banner-btn-quiet auth-out" id="btnSignOut" type="button" hidden>Sign out</button>
@@ -61,7 +61,7 @@
 <div class="board" id="view-projects" hidden>
   <header class="site-banner">
     <div class="site-banner-inner">
-      <div class="banner-logo board-logo"></div>
+      <a class="banner-logo board-logo banner-home" href="#/" title="All offices" aria-label="Axis Services Group — all offices"></a>
       <div class="banner-title">Axis Variations</div>
       <span class="auth-who" hidden></span>
       <button class="banner-btn banner-btn-quiet auth-out" type="button" hidden>Sign out</button>
@@ -211,7 +211,7 @@
 <div class="board" id="view-dashboard" hidden>
   <header class="site-banner">
     <div class="site-banner-inner">
-      <div class="banner-logo board-logo"></div>
+      <a class="banner-logo board-logo banner-home" href="#/" title="All offices" aria-label="Axis Services Group — all offices"></a>
       <div class="banner-title">Axis Variations</div>
       <span class="auth-who" hidden></span>
       <button class="banner-btn banner-btn-quiet auth-out" type="button" hidden>Sign out</button>
@@ -404,9 +404,6 @@
         <button class="refresh-btn" id="project-refresh" type="button">Refresh</button>
       </div>
       <div class="status-line" id="project-status"></div>
-      <div class="settings-actions" id="project-connect-wrap" hidden style="margin-bottom:14px;">
-        <button class="refresh-btn" id="project-connect" type="button">Connect to the flows</button>
-      </div>
 
       <!-- shown only when the register has no row to offer, or the pull failed -->
       <div class="field ac-wrap" id="project-manual-wrap" hidden>
@@ -900,9 +897,7 @@
 <div class="settings" id="view-settings" hidden>
   <button class="back-link" id="settings-back" type="button">&larr; Back</button>
   <div class="brand"><span class="brand-mark"></span><h1>Settings</h1></div>
-  <div class="home-sub">The per-office letterhead that fills in section 1 of every cover sheet</div>
-
-  <div class="build-stamp" id="build-stamp"></div>
+  <div class="home-sub">The office register: each office's letterhead, logo and colour</div>
 
   <div class="admin-bar">
     <button class="refresh-btn" id="open-admin" type="button">
@@ -913,17 +908,17 @@
       </svg>
       Administrator settings
     </button>
-    <span class="settings-help" style="margin:0;">The Power Automate connections, and the password
-      on this screen. Password required.</span>
+    <span class="settings-help" style="margin:0;">Deleted variations, importing old data, and the
+      password on that screen. Password required.</span>
   </div>
 
   <div class="form-section">
     <div class="form-section-head"><p class="form-section-title">Office register — section 1 of the cover sheet</p></div>
-    <p class="settings-help">One row per office. Edits are saved to this browser so you can correct a phone
-      number straight away; <strong>Export</strong> gives you a replacement
-      <code>assets/state-register.js</code> to commit so everyone gets them. The code is what gets
-      matched against the <code>State</code> column in SharePoint, so it must be spelled the same in both.</p>
-    <table class="state-editor-table" id="state-editor"><tbody id="state-editor-body"></tbody></table>
+    <p class="settings-help">One entry per office or brand. Open one to fill in or correct its details — the
+      name on its tile, the registered company, ABN and ACN, phone, email, address, its logo and colour, and
+      the opening and closing lines of its letters. <strong>Save register</strong> stores the changes in the
+      database, so everyone gets them straight away.</p>
+    <div class="office-list" id="state-editor-body"></div>
     <div class="settings-actions">
       <button class="print-btn" id="states-save" type="button">Save register</button>
       <button class="refresh-btn" id="states-export" type="button">Export as file</button>
@@ -938,7 +933,7 @@
 <div class="settings" id="view-admin" hidden>
   <button class="back-link" id="admin-back" type="button">&larr; Back to settings</button>
   <div class="brand"><span class="brand-mark"></span><h1>Administrator settings</h1></div>
-  <div class="home-sub">Power Automate connections, shared by everyone using this app</div>
+  <div class="home-sub">Shared by everyone using this app</div>
 
   <div class="lock-gate" id="admin-gate" hidden>
     <div class="lock-card">
@@ -948,7 +943,7 @@
         <circle cx="12" cy="16" r="1.4"/>
       </svg>
       <p class="lock-title">Administrator settings</p>
-      <p class="lock-sub">The Power Automate connections behind this app. Changing them affects
+      <p class="lock-sub">Settings behind this app. Changing them affects
         everyone using it, so only the administrator gets in.</p>
       <form class="lock-form" id="admin-gate-form" autocomplete="off">
         <label class="lock-label" for="admin-password">Password</label>
@@ -963,47 +958,20 @@
 
   <div id="admin-body">
 
-  <div class="warn-note">
-    <strong>Treat these URLs as passwords.</strong> A Power Automate trigger URL ends in a
-    <code>sig=</code> value, and anyone holding the whole URL can run that flow. They are built
-    into this copy of the app so nobody has to paste them — which also means they are in the page
-    itself, readable by anyone who can open the site. The Microsoft sign-in in front of the app
-    redirects people; it does not stop the file being downloaded. See
-    <code>docs/SIGN-IN.md</code>.
-  </div>
-
   <div class="form-section">
     <div class="form-section-head"><span class="form-section-num">A</span><p class="form-section-title">Power Automate flows</p></div>
+    <p class="settings-help">Projects, the variation log, variation files and agreed rates are all kept in the
+      database. Only two things still go to Power Automate: filing the PDF in the project's SharePoint folder,
+      and the optional Write professionally button.</p>
 
     <div class="connect-bar">
-      <button class="print-btn" id="flows-connect" type="button">Connect to the flows</button>
       <button class="refresh-btn" id="flows-reveal" type="button" hidden>Show URLs (admin)</button>
       <button class="refresh-btn" id="flows-unlock" type="button" hidden>Unlock to change</button>
-      <span class="settings-help" style="margin:0;">Asks this site which flows it can run, and tries them.
-        Do this first — the boxes below are only for flows the site is not handling.</span>
-    </div>
-    <div class="status-line" id="flows-connect-status"></div>
-    <ul class="flow-report" id="flows-connect-report" hidden></ul>
-
-    <div class="good-note" id="db-note" hidden>
-      <strong>Projects, the variation log, variation files and agreed rates are kept in Supabase.</strong>
-      <span>So Get projects, Variation log — read and write, Open a variation file and Get agreed rates are no
-        longer used, and their boxes are hidden. Only <b>File the PDF</b> (and the optional <b>Write professionally</b>)
-        still go to Power Automate. See <code>docs/SUPABASE.md</code>.</span>
     </div>
 
     <div class="good-note" id="proxy-note" hidden>
       <strong>This site holds the flow URLs itself.</strong>
       <span id="proxy-note-detail"></span>
-    </div>
-
-    <div class="db-replaced" data-db-flow>
-    <div class="field">
-      <label for="flow-projects">Get projects — HTTP POST URL</label>
-      <textarea id="flow-projects" placeholder="https://prod-00.australiasoutheast.logic.azure.com:443/workflows/…&amp;sig=…"></textarea>
-    </div>
-    <p class="settings-help">Receives <code>{"state":"VIC"}</code> and answers with the project register
-      rows for that state. Without it the project dropdown stays empty and everything is typed by hand.</p>
     </div>
 
     <div class="field">
@@ -1013,25 +981,6 @@
     <p class="settings-help">Receives the finished PDF and the project's folder path when someone clicks
       Download PDF. Without it the PDF still downloads, it just is not filed.</p>
 
-    <div class="db-replaced" data-db-flow>
-    <div class="field">
-      <label for="flow-log-read">Variation log — read URL</label>
-      <textarea id="flow-log-read" placeholder="Leave blank to work without a log"></textarea>
-    </div>
-    <p class="settings-help">Receives <code>{"state","projectId","variationRef"}</code>. Without a reference it
-      answers with that project's logged variations; with one, that variation in full. Without this flow the
-      app still works, it just cannot reopen anything.</p>
-    </div>
-
-    <div class="db-replaced" data-db-flow>
-    <div class="field">
-      <label for="flow-log-write">Variation log — write URL</label>
-      <textarea id="flow-log-write" placeholder="Leave blank to work without a log"></textarea>
-    </div>
-    <p class="settings-help">Receives the whole variation and creates or updates its row, matched on the
-      project and the variation reference together.</p>
-    </div>
-
     <div class="field">
       <label for="flow-describe">Write professionally — HTTP POST URL <span style="text-transform:none;font-weight:400;">(optional)</span></label>
       <textarea id="flow-describe" placeholder="Leave blank to tidy the notes locally instead"></textarea>
@@ -1039,52 +988,10 @@
     <p class="settings-help">Optional. Left blank, the "Write professionally" button falls back to a local
       tidy-up — real sentences and punctuation, but no rewriting.</p>
 
-    <div class="db-replaced" data-db-flow>
-    <div class="field">
-      <label for="flow-open-file">Open a variation file — HTTP POST URL <span style="text-transform:none;font-weight:400;">(optional)</span></label>
-      <textarea id="flow-open-file" placeholder="Leave blank to open variation files from this computer only"></textarea>
-    </div>
-    <p class="settings-help">Receives <code>{"projectId","folderPath","fileName"}</code> and answers with that file from the
-      project's folder. Saving a variation file needs no flow of its own — it goes through
-      <strong>File the PDF</strong>. See <code>docs/VARIATION-FILES.md</code>.</p>
-    </div>
-
-    <div class="db-replaced" data-db-flow>
-    <div class="field">
-      <label for="flow-rates">Get agreed rates — HTTP POST URL <span style="text-transform:none;font-weight:400;">(optional)</span></label>
-      <textarea id="flow-rates" placeholder="Leave blank to use the master schedule of rates, or rates uploaded by hand"></textarea>
-    </div>
-    <p class="settings-help">Receives <code>{"projectId","state"}</code> and answers with the Excel file the project
-      register's <code>RatesFile</code> column names. See <code>docs/AGREED-RATES.md</code>.</p>
-    </div>
-
     <div class="settings-actions">
       <button class="print-btn" id="flows-save" type="button">Save endpoints</button>
-      <button class="refresh-btn" id="flows-test" type="button">Test projects flow</button>
     </div>
     <div class="status-line" id="flows-status"></div>
-
-    <div id="rawrow-wrap" hidden>
-      <p class="form-section-title" style="margin:22px 0 4px;">What the flow returned</p>
-      <p class="settings-help">The first project exactly as Power Automate sent it. If a field you
-        expect is not listed here, or is listed but empty, the flow is not sending it and no setting
-        in this app can change that — the fix is the flow's <strong>Select</strong> step.</p>
-      <table class="state-editor-table"><tbody id="rawrow-body"></tbody></table>
-    </div>
-
-    <div id="colmap-wrap" hidden>
-      <p class="form-section-title" style="margin:22px 0 4px;">Match the register columns</p>
-      <p class="settings-help">These are the columns your flow returned. The app matches them by
-        name where it can; set any it could not work out. A list built with SharePoint's
-        <strong>From Excel</strong> import often names its columns <code>field_1</code>,
-        <code>field_2</code> and so on, which nothing can interpret without being told.</p>
-      <table class="state-editor-table" id="colmap-table"><tbody id="colmap-body"></tbody></table>
-      <div class="settings-actions">
-        <button class="print-btn" id="colmap-save" type="button">Save mapping</button>
-        <button class="refresh-btn" id="colmap-clear" type="button">Clear and match by name</button>
-      </div>
-      <div class="status-line" id="colmap-status"></div>
-    </div>
   </div>
 
 
@@ -1093,13 +1000,13 @@
   <div class="form-section">
     <div class="form-section-head"><span class="form-section-num">B</span><p class="form-section-title">Build the flow URLs into the app</p></div>
     <p class="settings-help" id="urls-current">&nbsp;</p>
-    <p class="settings-help">Takes whatever is in the seven boxes above and gives you back a copy of the
+    <p class="settings-help">Takes whatever is in the two boxes above and gives you back a copy of the
       app with them inside it. Deploy that, and nobody has to paste anything — it works on every
       laptop that opens the site.</p>
 
     <div class="warn-note">
       <strong>Only do this behind a sign-in.</strong> A trigger URL's <code>sig=</code> value is the
-      whole authentication, so a copy with them in it hands all seven flows to anyone served the page.
+      whole authentication, so a copy with them in it hands both flows to anyone served the page.
       That is fine once the site is behind Microsoft sign-in and being served the page already means
       being in your organisation. It is not fine on an open site, and a filled-in copy should never
       be committed to a public repository.
@@ -1114,8 +1021,7 @@
     <div class="warn-note" id="urls-next" hidden>
       <strong>Now put it live.</strong>
       <ol class="pw-steps" id="urls-next-steps"></ol>
-      Until that deploy finishes nothing has changed for anyone else. Check it afterwards with
-      <strong>Connect to the flows</strong> above, on a colleague's laptop rather than your own.
+      Until that deploy finishes nothing has changed for anyone else.
     </div>
   </div>
 

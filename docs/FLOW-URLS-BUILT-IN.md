@@ -46,18 +46,17 @@ browser. It needs the function to deploy, which the drop zone may not do.
 
 In the app, once, from a browser where the flows already work:
 
-1. **Settings → Administrator settings → A** — paste the five URLs into the
-   boxes. Press **Connect to the flows** to check they work before baking them
-   in.
+1. **Settings → Administrator settings → A** — paste the two URLs (File the PDF,
+   Write professionally) into the boxes.
 2. **B → Build the URLs in.** It downloads a copy of the app with them inside
    it.
 3. Deploy that copy. On this site that means dragging the `index.html` it gives
    you onto Netlify → your site → **Deploys**. If you deploy a folder, put the
    downloaded `flow-config.js` into the folder's `assets` folder instead and drag
    the folder.
-4. On **a colleague's laptop**, not your own, open the site and press
-   **Connect to the flows**. Your own browser has the URLs saved locally and will
-   work either way, which is exactly how this looks fixed when it is not.
+4. On **a colleague's laptop**, not your own, open the site and download a PDF.
+   Your own browser has the URLs saved locally and will work either way, which
+   is exactly how this looks fixed when it is not.
 
 ### Taking them back out
 
@@ -152,7 +151,8 @@ copy it into your browser; editing it does, deliberately, for your browser only.
 
 ## If it still does not work
 
-Press **Connect to the flows** and read the row for the failing flow.
+Download a PDF and read the line under the button: it says whether filing
+worked, and the error if not.
 
 - **"could not reach the flow"** — this is not a missing URL. It is almost
   always the flow's Response action not returning the

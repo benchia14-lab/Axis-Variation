@@ -243,9 +243,39 @@ const STATE_REGISTER = [
    file stays the source of truth for anyone opening the app fresh.
 --------------------------------------------------------------------------- */
 const STATE_OVERRIDE_KEY = 'variationCoverSheet:stateRegister';
+// the last copy read from the database (av_offices), so the picker shows the
+// shared details straight away rather than after the database answers
+const STATE_SHARED_KEY = 'variationCoverSheet:stateRegisterShared';
 
 const StateRegister = (() => {
   const FIELDS = ['code','name','entity','abn','acn','phone','address','email','logo','brand','intro','closing'];
+
+  // What everyone shares: one entry per office, holding only the fields changed
+  // from the rows in this file. Set from the database (av_offices).
+  let shared = null;
+  try {
+    const raw = localStorage.getItem(STATE_SHARED_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if(Array.isArray(parsed)) shared = parsed;
+  } catch(e){}
+
+  function setShared(list){
+    shared = Array.isArray(list) ? list : null;
+    try { localStorage.setItem(STATE_SHARED_KEY, JSON.stringify(shared || [])); } catch(e){}
+  }
+
+  // the fields of a row that differ from this file's row for the same office
+  function changes(row){
+    const base = STATE_REGISTER.find(b => b.code === row.code) || {};
+    const out = {};
+    FIELDS.forEach(f => {
+      if(f === 'code' || row[f] === undefined) return;
+      if(String(row[f]) !== String(base[f] === undefined ? '' : base[f])) out[f] = row[f];
+    });
+    return out;
+  }
+
+  function shipped(){ return STATE_REGISTER.map(r => Object.assign({}, r)); }
 
   function readOverrides(){
     try {
@@ -260,14 +290,17 @@ const StateRegister = (() => {
   // state added to this file later still appears for someone whose browser is
   // holding an older saved copy.
   function rows(){
-    const overrides = readOverrides() || [];
-    const byCode = {};
-    overrides.forEach(row => { if(row && row.code) byCode[row.code] = row; });
+    const layers = [shared || [], readOverrides() || []].map(list => {
+      const byCode = {};
+      list.forEach(row => { if(row && row.code) byCode[row.code] = row; });
+      return byCode;
+    });
     return STATE_REGISTER.map(base => {
-      const over = byCode[base.code];
-      if(!over) return Object.assign({}, base);
       const merged = Object.assign({}, base);
-      FIELDS.forEach(f => { if(over[f] !== undefined) merged[f] = over[f]; });
+      layers.forEach(byCode => {
+        const over = byCode[base.code];
+        if(over) FIELDS.forEach(f => { if(over[f] !== undefined && f !== 'code') merged[f] = over[f]; });
+      });
       return merged;
     });
   }
@@ -309,5 +342,5 @@ const StateRegister = (() => {
     return 'const STATE_REGISTER = [\n' + body + '\n];\n';
   }
 
-  return { rows, get, isConfigured, save, clear, hasOverrides, toFileSource, FIELDS };
+  return { rows, get, isConfigured, save, clear, hasOverrides, toFileSource, FIELDS, setShared, changes, shipped };
 })();

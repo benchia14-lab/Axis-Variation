@@ -190,8 +190,9 @@ anyone who asks for it.
 3. **Put it online** — [docs/DEPLOY-NETLIFY.md](docs/DEPLOY-NETLIFY.md). Do this
    before the flows: they need the site's address baked into a CORS header.
 4. **Build the flows** — [docs/POWER-AUTOMATE-SETUP.md](docs/POWER-AUTOMATE-SETUP.md).
-5. **Paste the flow URLs** — Settings → Power Automate flows, then
-   **Test projects flow**.
+5. **Paste the flow URLs** — Settings → Administrator settings → A: the two
+   boxes (File the PDF, Write professionally), then **Save endpoints**. Check it
+   by downloading a PDF and seeing it land in the project's folder.
 6. **Lock the administrator screen** — Settings → Administrator settings → C →
    **Create the file**, drop
    the downloaded `settings-password.js` into `assets/`, deploy again. Optional,
