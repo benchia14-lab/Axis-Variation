@@ -16,7 +16,7 @@ const ProjectSetup = (function(){
   const statusLine = document.getElementById('ps-status');
   const ratesNow = document.getElementById('ps-rates-now');
   const FIELDS = ['project', 'projectNumber', 'headContractor', 'attention', 'recipientAddress', 'issuedBy',
-                  'position', 'pmEmail', 'clauseRef', 'folderPath', 'siteUrl'];
+                  'position', 'pmEmail', 'clauseRef', 'folderPath'];
   const box = f => document.getElementById('ps-' + f);
   const say = (t, cls) => { statusLine.textContent = t || ''; statusLine.className = 'status-line' + (cls ? ' ' + cls : ''); };
 
@@ -31,6 +31,60 @@ const ProjectSetup = (function(){
     if(html !== undefined) e.innerHTML = html;
     return e;
   }
+  /* The folder the filing flow needs is a path inside the site's document
+     library: /Shared Documents/15.Projects_VIC/1510V_.../11.Variations/...
+     People will paste what the browser shows them instead, so anything that
+     looks like a SharePoint link is cut down to that:
+       ...AllItems.aspx?id=%2Fsites%2FAXPVIC%2FShared%20Documents%2F...  (the folder open in the library)
+       https://x.sharepoint.com/sites/AXPVIC/Shared%20Documents/...       (the address of the folder itself)
+       https://x.sharepoint.com/:f:/r/sites/AXPVIC/Shared%20Documents/... (Copy link, "people with existing access")
+       Shared Documents\15.Projects_VIC\...                              (typed, or from File Explorer)
+     The site name, the encoding (%20, %2F, %5F, %2E), the view and the page
+     name all go; what is left starts with / and has no / at the end. */
+  function cleanFolderPath(raw){
+    let text = String(raw || '').trim().replace(/^["'<]+|["'>]+$/g, '');
+    if(!text) return { path: '', note: '' };
+    let note = '';
+    const decode = v => { try { return decodeURIComponent(v); } catch(e){ return v; } };
+    if(/^https?:\/\//i.test(text)){
+      let url = null;
+      try { url = new URL(text); } catch(e){}
+      if(url){
+        const inside = url.searchParams.get('id') || url.searchParams.get('RootFolder');
+        if(inside) text = inside;                       // already decoded by URLSearchParams
+        else {
+          text = decode(url.pathname);
+          // a "Copy link" address: /:f:/r/sites/... is the real path; /:f:/s/... is a code that cannot be read
+          if(/^\/:[a-z]:\/s\//i.test(text)){
+            return { path: '', note: 'That is a sharing link, which does not say where the folder is. Open the folder in SharePoint and copy the address from the browser instead.' };
+          }
+          text = text.replace(/^\/:[a-z]:\/r(?=\/)/i, '');
+        }
+        note = 'Cut down from the SharePoint link.';
+      }
+    }
+    text = decode(text).replace(/\\/g, '/').replace(/\/{2,}/g, '/');
+    text = text.replace(/^\/?(?:sites|teams)\/[^/]+(?=\/|$)/i, '');                 // the site
+    text = text.replace(/\/Forms\/[^/]*\.aspx$/i, '').replace(/\/[^/]*\.aspx$/i, ''); // the page showing it
+    text = text.split('/').map(p => p.trim()).filter(Boolean).join('/');
+    const path = text ? '/' + text : '';
+    if(!note && path !== String(raw).trim()) note = 'Tidied into the form the filing flow needs.';
+    return { path: path, note: path ? note : '' };
+  }
+
+  const folderBox = document.getElementById('ps-folderPath');
+  const folderHelp = folderBox.parentNode.querySelector('.field-help');
+  const folderHelpText = folderHelp.innerHTML;
+  function tidyFolderBox(){
+    const out = cleanFolderPath(folderBox.value);
+    if(out.path && out.path !== folderBox.value) folderBox.value = out.path;
+    folderHelp.innerHTML = out.note
+      ? '<span class="' + (out.path ? 'ok' : 'err') + '">' + escapeHtml(out.note) + '</span> ' + folderHelpText
+      : folderHelpText;
+  }
+  folderBox.addEventListener('change', tidyFolderBox);
+  folderBox.addEventListener('paste', () => setTimeout(tidyFolderBox, 0));
+
   const whoAmI = () => (window.AXIS_USER && (window.AXIS_USER.name || window.AXIS_USER.username)) || '';
 
   function describeRates(){
@@ -66,6 +120,7 @@ const ProjectSetup = (function(){
     FIELDS.forEach(f => { box(f).value = project ? (project[f] || '') : ''; box(f).classList.remove('field-invalid'); });
     document.getElementById('ps-active').checked = project ? project.active !== false : true;
     describeRates();
+    folderHelp.innerHTML = folderHelpText;
     say('');
     modal.hidden = false;
     setTimeout(() => box('project').focus(), 0);
@@ -92,6 +147,7 @@ const ProjectSetup = (function(){
 
   async function save(){
     const values = {};
+    tidyFolderBox();
     FIELDS.forEach(f => { values[f] = box(f).value.trim(); });
     if(!values.project){
       box('project').classList.add('field-invalid');
@@ -99,6 +155,13 @@ const ProjectSetup = (function(){
       say('Give the project a name.', 'err');
       return;
     }
+    if(values.folderPath && !cleanFolderPath(values.folderPath).path){
+      folderBox.classList.add('field-invalid');
+      folderBox.focus();
+      say('The PDF folder is a sharing link, which does not say where the folder is — paste the address from the browser with the folder open.', 'err');
+      return;
+    }
+    folderBox.classList.remove('field-invalid');
     const code = editing ? editing.state : (currentState && currentState.code);
     if(!code){ say('Pick an office first.', 'err'); return; }
     const button = document.getElementById('ps-save');
@@ -106,7 +169,7 @@ const ProjectSetup = (function(){
     say('Saving…');
     try {
       const change = Object.assign(values, { active: document.getElementById('ps-active').checked });
-      if(editing) change.id = editing.id;
+      if(editing){ change.id = editing.id; change.stateHint = editing.state || code; }
       else { change.state = code; change.createdBy = whoAmI(); }
       if(clearRates && !pendingRates) Object.assign(change, { ratesFile: '', ratesName: '', ratesUploadedAt: null });
       let saved = await AxisDb.saveProject(change);
@@ -184,5 +247,5 @@ const ProjectSetup = (function(){
     if(e.dataTransfer && e.dataTransfer.files.length) takeRates(e.dataTransfer.files[0]);
   });
 
-  return { open: open, onProjectsPage: onProjectsPage, onProjectPage: onProjectPage };
+  return { open: open, onProjectsPage: onProjectsPage, onProjectPage: onProjectPage, cleanFolderPath: cleanFolderPath };
 })();

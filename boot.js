@@ -31,12 +31,14 @@ const APP_SCRIPTS = [
   'assets/agreed-rates.js',
   'assets/supabase-config.js',
   'assets/db.js',
+  'assets/access.js',
   'assets/app.js',
   'assets/stages.js',
   'assets/variation-file.js',
   'assets/dashboard.js',
   'assets/project-setup.js',
   'assets/importer.js',
+  'assets/permissions.js',
   'assets/day-sheets.js',
 ];
 
@@ -97,6 +99,19 @@ window.AXIS_BOOT_PENDING = true;
 
   try {
     for (const src of APP_SCRIPTS) await load(src);
+    // who this is and what they may do (assets/access.js), before anything shows
+    if (typeof Access !== 'undefined') {
+      await Access.load();
+      if (Access.level() === 'none') {
+        const me = Access.me() || {};
+        fail('No access yet',
+          (Access.problem() ? 'Your access could not be checked: ' + String(Access.problem()).replace(/</g, '&lt;') + ' '
+            : 'You are signed in as <b>' + String(me.email || '').replace(/</g, '&lt;') + '</b>, but have not been given access yet. ') +
+          'Ask the administrator to set you up under Administrator settings → Permissions, then reload this page.');
+        return;
+      }
+      Access.apply();
+    }
     document.body.classList.remove('auth-pending');
     window.AXIS_BOOT_PENDING = false;
     window.dispatchEvent(new Event('axis:app-loaded'));

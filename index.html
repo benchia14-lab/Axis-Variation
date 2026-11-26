@@ -127,10 +127,8 @@
           <input type="text" id="ps-clauseRef" placeholder="e.g. Cl 12.3"></div>
       </div>
       <div class="field"><label for="ps-folderPath">SharePoint folder for the PDFs</label>
-        <input type="text" id="ps-folderPath" placeholder="/Shared Documents/15.Projects_VIC/1507V_Austin_Hospital/11.Variations">
-        <p class="field-help">Where <b>Download PDF</b> files each issued variation — the one thing still sent to SharePoint.</p></div>
-      <div class="field"><label for="ps-siteUrl">SharePoint site <span class="field-note">(only if it is not the filing flow's usual site)</span></label>
-        <input type="text" id="ps-siteUrl" placeholder="https://axisplumbingptyltd.sharepoint.com/sites/AXPVIC"></div>
+        <input type="text" id="ps-folderPath" placeholder="Paste the folder's SharePoint address, or /Shared Documents/15.Projects_VIC/…">
+        <p class="field-help">Where <b>Download PDF</b> files each issued variation — the one thing still sent to SharePoint. Paste the folder's address straight from the browser; it is cut down to the path.</p></div>
 
       <p class="form-subtitle">Agreed schedule of rates</p>
       <label class="drop-zone ps-rates-zone" id="ps-rates-zone">
@@ -189,12 +187,14 @@
       <div class="dsr-view" id="dsr-view"></div>
       <div class="dsr-side">
         <div class="status-line" id="dsr-status"></div>
+        <div class="dsr-split" id="dsr-split" hidden>
+          <span id="dsr-split-text"></span>
+          <button type="button" class="refresh-btn" id="dsr-split-btn">One day sheet per page</button>
+        </div>
         <div class="field"><label for="dsr-number">Day sheet no. <span class="dsr-found" id="dsr-number-found"></span></label>
           <input type="text" id="dsr-number" class="mono-input"></div>
         <div class="field"><label for="dsr-date">Date <span class="dsr-found" id="dsr-date-found"></span></label>
-          <input type="text" id="dsr-date"></div>
-        <div class="field"><label for="dsr-description">Description <span class="dsr-found" id="dsr-description-found"></span></label>
-          <textarea id="dsr-description"></textarea></div>
+          <input type="date" id="dsr-date" class="date-pick"></div>
         <div class="field"><label for="dsr-approvedBy">Approved by <span class="dsr-found" id="dsr-approvedBy-found"></span></label>
           <input type="text" id="dsr-approvedBy"></div>
         <details class="dsr-text"><summary>Text read off the day sheet</summary><pre id="dsr-text"></pre></details>
@@ -521,14 +521,16 @@
       <label class="drop-zone ds-drop daysheet-only" id="ds-drop">
         <input type="file" id="ds-drop-file" multiple accept="application/pdf,image/*">
         <span class="dz-main">Drop the signed day sheets here, or <u>browse</u></span>
-        <span class="dz-sub">PDF, photo or scan. Each one is read and shown to you to check before it goes onto the variation.</span>
+        <span class="dz-sub">PDF, photo or scan — several at once, or one PDF holding several. Each is read and shown to you to check; once verified it goes into the table and is filed on the Documentation step.</span>
       </label>
+      <div class="status-line ok" id="ds-drop-note" hidden></div>
 
       <p class="form-subtitle"><span class="works-only">Day sheet reference</span><span class="daysheet-only">Day sheets on this variation</span></p>
       <div class="dwg-editor">
         <div class="dwg-row ds-row dwg-row-head">
           <div class="dwg-col">Day Sheet No.</div>
-          <div class="dwg-col">Description</div>
+          <div class="dwg-col">Date</div>
+          <div class="dwg-col works-only">Description</div>
           <div class="dwg-col">Approved By</div>
           <div class="dwg-col-remove"></div>
         </div>
@@ -646,7 +648,7 @@
           <div class="dwg-panel" id="ds-panel" style="display:none;">
             <p class="dwg-panel-title">Day Sheet Reference</p>
             <table class="dwg-preview-table">
-              <thead><tr><th>Day Sheet No.</th><th>Description</th><th>Approved By</th></tr></thead>
+              <thead id="ds-preview-head"><tr><th>Day Sheet No.</th><th>Date</th><th>Description</th><th>Approved By</th></tr></thead>
               <tbody id="ds-preview-body"></tbody>
             </table>
           </div>
@@ -957,9 +959,17 @@
   </div>
 
   <div id="admin-body">
-
+  <nav class="admin-tabs" id="admin-tabs" aria-label="Administrator settings">
+    <button type="button" class="admin-tab" data-tab="flows">Power Automate flows</button>
+    <button type="button" class="admin-tab" data-tab="password">Password</button>
+    <button type="button" class="admin-tab" data-tab="deleted">Deleted variations</button>
+    <button type="button" class="admin-tab" data-tab="permissions">Permissions</button>
+    <button type="button" class="admin-tab" data-tab="profiles">Profiles</button>
+    <button type="button" class="admin-tab" data-tab="import">Import</button>
+  </nav>
+  <section class="admin-pane" data-pane="flows" hidden>
   <div class="form-section">
-    <div class="form-section-head"><span class="form-section-num">A</span><p class="form-section-title">Power Automate flows</p></div>
+    <div class="form-section-head"><p class="form-section-title">Power Automate flows</p></div>
     <p class="settings-help">Projects, the variation log, variation files and agreed rates are all kept in the
       database. Only two things still go to Power Automate: filing the PDF in the project's SharePoint folder,
       and the optional Write professionally button.</p>
@@ -994,11 +1004,8 @@
     <div class="status-line" id="flows-status"></div>
   </div>
 
-
-  <div class="divider"></div>
-
   <div class="form-section">
-    <div class="form-section-head"><span class="form-section-num">B</span><p class="form-section-title">Build the flow URLs into the app</p></div>
+    <div class="form-section-head"><p class="form-section-title">Build the flow URLs into the app</p></div>
     <p class="settings-help" id="urls-current">&nbsp;</p>
     <p class="settings-help">Takes whatever is in the two boxes above and gives you back a copy of the
       app with them inside it. Deploy that, and nobody has to paste anything — it works on every
@@ -1024,12 +1031,10 @@
       Until that deploy finishes nothing has changed for anyone else.
     </div>
   </div>
-
-
-  <div class="divider"></div>
-
+  </section>
+  <section class="admin-pane" data-pane="password" hidden>
   <div class="form-section">
-    <div class="form-section-head"><span class="form-section-num">C</span><p class="form-section-title">Password on this screen</p></div>
+    <div class="form-section-head"><p class="form-section-title">Password on this screen</p></div>
     <p class="settings-help" id="pw-current">&nbsp;</p>
     <p class="settings-help" id="pw-how">&nbsp;</p>
 
@@ -1073,11 +1078,10 @@
       Keep the password somewhere safe: it cannot be recovered from the file.
     </div>
   </div>
-
-  <div class="divider"></div>
-
+  </section>
+  <section class="admin-pane" data-pane="deleted" hidden>
   <div class="form-section">
-    <div class="form-section-head"><span class="form-section-num">D</span><p class="form-section-title">Deleted variations</p></div>
+    <div class="form-section-head"><p class="form-section-title">Deleted variations</p></div>
     <p class="settings-help">Variations deleted from a project dashboard. Deleting only hides one: its row in
       the variation log, its PDF and its variation file are all kept, and it keeps its number.
       <strong>Restore</strong> puts it back on its project's dashboard exactly as it was.</p>
@@ -1094,11 +1098,56 @@
       </table>
     </div>
   </div>
+  </section>
+  <section class="admin-pane" data-pane="permissions" hidden>
+  <div class="form-section">
+    <div class="form-section-head"><p class="form-section-title">Permissions</p></div>
+    <p class="settings-help" id="perm-state">&nbsp;</p>
+    <p class="settings-help">Pick a person to set what they can do — <b>Administrator</b> (everything, and these
+      settings), <b>Editor</b> (creates, edits and issues variations and sets up projects), <b>View only</b> or
+      <b>No access</b> — and which offices and projects that covers. Everyone who signs in appears here.</p>
+    <div class="perm-layout">
+      <div class="perm-people">
+        <input type="text" id="perm-search" placeholder="Find a person…">
+        <div class="perm-list" id="perm-list"></div>
+      </div>
+      <div class="perm-edit" id="perm-edit">
+        <p class="settings-help">Choose a person on the left.</p>
+      </div>
+    </div>
+    <div class="status-line" id="perm-status"></div>
 
-  <div class="divider"></div>
-
+    <div class="perm-new">
+      <p class="form-subtitle">Someone signing in for the first time</p>
+      <p class="settings-help">What a new profile starts with, until you change it.</p>
+      <div class="field-row">
+        <div class="field"><label for="perm-new-level">Level</label>
+          <select id="perm-new-level">
+            <option value="none">No access — wait for me to set them up</option>
+            <option value="viewer">View only</option>
+            <option value="editor">Editor</option>
+          </select></div>
+        <div class="field"><label for="perm-new-offices">Offices</label>
+          <select id="perm-new-offices"><option value="">None until set</option><option value="*">Every office</option></select></div>
+      </div>
+      <div class="settings-actions"><button class="refresh-btn" id="perm-new-save" type="button">Save</button></div>
+      <div class="status-line" id="perm-new-status"></div>
+    </div>
+  </div>
+  </section>
+  <section class="admin-pane" data-pane="profiles" hidden>
+  <div class="form-section">
+    <div class="form-section-head"><p class="form-section-title">Profiles</p></div>
+    <p class="settings-help">Everyone who has signed in, by their Microsoft account. A profile is made the first
+      time someone signs in; <b>Permissions</b> sets what it may do.</p>
+    <div class="settings-actions" style="margin-top:0;"><button class="refresh-btn" id="prof-refresh" type="button">Refresh</button></div>
+    <div class="prof-wrap"><table class="state-editor-table prof-table"><tbody id="prof-body"></tbody></table></div>
+    <div class="status-line" id="prof-status"></div>
+  </div>
+  </section>
+  <section class="admin-pane" data-pane="import" hidden>
   <div class="form-section" id="import-section">
-    <div class="form-section-head"><span class="form-section-num">E</span><p class="form-section-title">Bring projects and variations across from SharePoint</p></div>
+    <div class="form-section-head"><p class="form-section-title">Bring projects and variations across from SharePoint</p></div>
     <p class="settings-help">Export the SharePoint lists to CSV (<b>Export → Export to CSV</b> in the list) and drop them
       here. Projects go into their office's project setup and variations into the log, with their saved forms,
       statuses, values and builder commentary. Safe to run again: a project already set up, or a variation
@@ -1123,7 +1172,7 @@
     <div class="status-line" id="imp-status"></div>
     <ul class="imp-log" id="imp-log"></ul>
   </div>
-
+  </section>
   </div><!-- /#admin-body -->
 </div>
 

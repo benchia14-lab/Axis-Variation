@@ -46,7 +46,7 @@ browser. It needs the function to deploy, which the drop zone may not do.
 
 In the app, once, from a browser where the flows already work:
 
-1. **Settings → Administrator settings → A** — paste the two URLs (File the PDF,
+1. **Settings → Administrator settings → Power Automate flows** — paste the two URLs (File the PDF,
    Write professionally) into the boxes.
 2. **B → Build the URLs in.** It downloads a copy of the app with them inside
    it.
@@ -60,7 +60,7 @@ In the app, once, from a browser where the flows already work:
 
 ### Taking them back out
 
-**Administrator settings → B → Build a copy with none in.** Deploy that, and the app is back
+**Administrator settings → Power Automate flows → Build a copy with none in.** Deploy that, and the app is back
 to the server function or per-person pasting.
 
 ### From a terminal instead

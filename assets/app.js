@@ -133,7 +133,8 @@ const stateGrid = document.getElementById('state-grid');
 const pickerStatus = document.getElementById('picker-status');
 
 function renderStatePicker(){
-  const rows = StateRegister.rows();
+  // only the offices this person has been given (assets/access.js)
+  const rows = StateRegister.rows().filter(r => typeof Access === 'undefined' || Access.canOffice(r.code));
   stateGrid.innerHTML = rows.map(row => {
     const ready = StateRegister.isConfigured(row);
     const mark = row.logo || DEFAULT_LOGO;
@@ -638,12 +639,14 @@ function addDsRow(){
   row.className = 'dwg-row ds-row';
   row.innerHTML =
     '<input type="text" class="dwg-input ds-number mono-input" placeholder="e.g. DS-014">' +
-    '<input type="text" class="dwg-input ds-desc" placeholder="e.g. After-hours crew to relocate sewer">' +
+    '<input type="date" class="dwg-input ds-date date-pick" title="Date on the day sheet">' +
+    '<input type="text" class="dwg-input ds-desc works-only" placeholder="e.g. After-hours crew to relocate sewer">' +
     '<input type="text" class="dwg-input ds-by" placeholder="e.g. Glen O\'Connor">' +
     '<button type="button" class="dwg-remove" title="Remove row">&times;</button>';
   dsRowsContainer.appendChild(row);
   row.querySelectorAll('.dwg-input').forEach(inp => {
     inp.addEventListener('input', renderDsPreview);
+    inp.addEventListener('change', renderDsPreview);
     inp.addEventListener('keydown', (e) => {
       if(e.key !== 'Enter') return;
       e.preventDefault();
@@ -660,12 +663,21 @@ function addDsRow(){
   return row;
 }
 
+// 2026-11-12 -> 12/11/2026, as the day sheet itself would write it
+function dsDateText(iso){
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+  return m ? m[3] + '/' + m[2] + '/' + m[1] : '';
+}
+
 function collectDaySheets(){
   return Array.from(dsRowsContainer.children).map(row => ({
     number: row.querySelector('.ds-number').value.trim(),
-    description: row.querySelector('.ds-desc').value.trim(),
+    date: row.querySelector('.ds-date').value,
+    // a day sheet variation has no description per sheet: the works are in
+    // the variation's own description
+    description: document.body.classList.contains('vt-daysheet') ? '' : row.querySelector('.ds-desc').value.trim(),
     approvedBy: row.querySelector('.ds-by').value.trim()
-  })).filter(r => r.number || r.description || r.approvedBy);
+  })).filter(r => r.number || r.date || r.description || r.approvedBy);
 }
 
 function setDaySheets(list){
@@ -673,6 +685,7 @@ function setDaySheets(list){
   (list || []).forEach(d => {
     const row = addDsRow();
     row.querySelector('.ds-number').value = d.number || '';
+    row.querySelector('.ds-date').value = /^\d{4}-\d{2}-\d{2}$/.test(d.date || '') ? d.date : '';
     row.querySelector('.ds-desc').value = d.description || '';
     row.querySelector('.ds-by').value = d.approvedBy || '';
   });
@@ -684,10 +697,16 @@ function renderDsPreview(){
   const rows = collectDaySheets();
   if(!rows.length){ dsPanel.style.display = 'none'; return; }
   dsPanel.style.display = 'block';
+  // a column only when something is in it: day sheet variations have no
+  // descriptions, older variations no dates
+  const withDate = rows.some(r => r.date), withDesc = rows.some(r => r.description);
+  document.getElementById('ds-preview-head').innerHTML = '<tr><th>Day Sheet No.</th>' +
+    (withDate ? '<th>Date</th>' : '') + (withDesc ? '<th>Description</th>' : '') + '<th>Approved By</th></tr>';
   dsPreviewBody.innerHTML = rows.map(r =>
     '<tr>' +
       '<td>' + (escapeHtml(r.number) || '—') + '</td>' +
-      '<td>' + (escapeHtml(r.description) || '—') + '</td>' +
+      (withDate ? '<td>' + (dsDateText(r.date) || '—') + '</td>' : '') +
+      (withDesc ? '<td>' + (escapeHtml(r.description) || '—') + '</td>' : '') +
       '<td>' + (escapeHtml(r.approvedBy) || '—') + '</td>' +
     '</tr>'
   ).join('');
@@ -1556,6 +1575,7 @@ let variationType = 'works';
 function setVariationType(type){
   variationType = type === 'daysheet' ? 'daysheet' : 'works';
   document.body.classList.toggle('vt-daysheet', variationType === 'daysheet');
+  renderDsPreview();
 }
 
 // The window + New variation opens: complete works or day sheets. `then` is
@@ -2157,7 +2177,7 @@ function logPayloadFromSaved(saved, ref, extra){
       .filter(Boolean).join('  ')).join('\n'),
     daySheets: daySheets,
     daySheetsText: daySheets
-      .map(d => [d.number, d.description, d.approvedBy ? 'approved by ' + d.approvedBy : '']
+      .map(d => [d.number, dsDateText(d.date), d.description, d.approvedBy ? 'approved by ' + d.approvedBy : '']
       .filter(Boolean).join('  ')).join('\n'),
     folderPath: ref.folderPath || '',
     variationFile: saved.variationFile || '',
@@ -2719,7 +2739,7 @@ function showPicker(){
    Building the flow URLs into the app
 
    The URLs have to live somewhere the browser can read, and on a static site
-   that means inside what gets deployed. This takes the five boxes in section A
+   that means inside what gets deployed. This takes the two flow boxes
    and hands back a copy of the app carrying them, in whichever shape this
    deployment uses — the same job the password button does, and for the same
    reason: there is no build step here to do it for us.
@@ -2797,7 +2817,7 @@ document.getElementById('urls-build').addEventListener('click', async () => {
   const urls = urlsFromForm();
   const count = FlowUrls.KEYS.filter(k => String(urls[k] || '').trim()).length;
   if(!count){
-    urlsStatus.textContent = 'All five boxes in section A are empty — there is nothing to build in. '
+    urlsStatus.textContent = 'Both flow boxes are empty — there is nothing to build in. '
       + 'Paste the URLs up there first.';
     urlsStatus.className = 'status-line err';
     return;
@@ -2859,12 +2879,18 @@ function markUnlocked(){
    Everything that decides how the app talks to Power Automate lives one door
    further in, because it is shared by everyone using the app and nobody but the
    administrator should be able to change it. */
+// Settings and Administrator settings are for administrators only, once
+// permissions are switched on (assets/access.js)
+const settingsAllowed = () => typeof Access === 'undefined' || Access.isAdmin();
+
 function showSettings(){
+  if(!settingsAllowed()){ location.hash = ''; return; }
   loadRegisterForm();
   showOnly(viewSettings);
 }
 
 function showAdmin(){
+  if(!settingsAllowed()){ location.hash = ''; return; }
   const open = adminUnlocked();
   adminGate.hidden = open;
   adminBody.hidden = !open;
@@ -2873,6 +2899,7 @@ function showAdmin(){
     describePasswordState();
     describeBuiltIn();
     if(typeof Dashboard !== 'undefined') Dashboard.prepareBin();
+    if(typeof Permissions !== 'undefined') Permissions.prepare();
     if(typeof Importer !== 'undefined') Importer.prepare();
   }else{
     // Never leave a typed password sitting in the field behind a Back.
@@ -3077,6 +3104,8 @@ document.getElementById('admin-gate-form').addEventListener('submit', e => {
 function openState(code, route){
   const row = StateRegister.get(code);
   if(!row){ location.hash = ''; return; }
+  // an office this person has not been given (assets/access.js)
+  if(typeof Access !== 'undefined' && !Access.canOffice(row.code)){ location.hash = ''; return; }
   const switching = !currentState || currentState.code !== row.code;
   currentState = row;
   // Only on a real change of state. Coming back from Settings must not wipe a

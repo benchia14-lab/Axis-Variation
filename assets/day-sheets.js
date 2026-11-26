@@ -3,9 +3,9 @@
    ============================================================================
    A day sheet variation is built from the signed day sheets. Each one dropped
    on the cover sheet is shown beside what could be read off it -- the day
-   sheet number, the date, the description of the works and who approved it --
-   in boxes that can be corrected. Only when someone presses Verified does it
-   go into the day sheet table, with the file attached under it on the
+   sheet number, the date and who approved it -- in boxes that can be
+   corrected (what the works were goes in the variation's own description).
+   Only when someone presses Verified does it go into the day sheet table, with the file attached under it on the
    Documentation step. Nothing read off a sheet goes onto a variation unseen.
 
    Reading it:
@@ -16,7 +16,13 @@
 
    Day sheets are filled in by hand as often as not, and handwriting reads
    poorly, so the fields are a starting point: each says whether it was found
-   on the sheet, and the text that was read is there to look at.
+   on the sheet, and the text that was read is there to look at. A date that
+   cannot be read is left blank, to be picked on the calendar.
+
+   Several at once: any number of files can be dropped together, and a PDF of
+   several pages can hold several day sheets. When its pages carry different
+   day sheet numbers it is split, one day sheet per page, each filed as its
+   own one-page PDF; otherwise it is read as one, with a button to split it.
 ============================================================================ */
 
 const DaySheets = (function(){
@@ -24,13 +30,14 @@ const DaySheets = (function(){
   const modal = document.getElementById('dsr-modal');
   const view = document.getElementById('dsr-view');
   const status = document.getElementById('dsr-status');
-  const FIELDS = ['number', 'date', 'description', 'approvedBy'];
+  const FIELDS = ['number', 'date', 'approvedBy'];
   const box = f => document.getElementById('dsr-' + f);
   const say = (t, cls) => { status.textContent = t || ''; status.className = 'status-line' + (cls ? ' ' + cls : ''); };
 
-  let queue = [];          // files waiting to be checked
-  let current = null;      // { file }
+  let queue = [];          // { file, page } waiting to be checked; page is 1-based, or 0 for the whole file
+  let current = null;      // the one on screen, plus what was read of its pages
   let busy = false;
+  let filed = 0;           // verified and filed since the last drop
 
   function el(tag, cls, html){
     const e = document.createElement(tag);
@@ -42,9 +49,10 @@ const DaySheets = (function(){
   /* ---- reading the text off a sheet ------------------------------------------ */
 
   // text a PDF already holds, one line per row of the page
-  async function pdfText(doc){
+  async function pdfPageTexts(doc, only){
     const pages = [];
     for(let n = 1; n <= doc.numPages; n++){
+      if(only && n !== only) continue;
       const page = await doc.getPage(n);
       const content = await page.getTextContent();
       const rows = [];
@@ -58,7 +66,7 @@ const DaySheets = (function(){
       pages.push(rows.map(r => r.parts.sort((a, b) => a.x - b.x).map(p => p.s).join(' ').replace(/\s+/g, ' ').trim())
         .filter(Boolean).join('\n'));
     }
-    return pages.join('\n');
+    return pages;
   }
 
   // Tesseract, loaded the first time a sheet needs it
@@ -116,6 +124,23 @@ const DaySheets = (function(){
     return m ? tidy(m[1]).replace(/\s*([\/.\-])\s*/g, '$1') : '';
   }
 
+  // what findDate read, as the calendar box wants it (yyyy-mm-dd), or '' when it
+  // is not a real date
+  const MONTHS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  function isoDate(text){
+    if(!text) return '';
+    let d, m, y;
+    let hit = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})$/.exec(text);
+    if(hit){ d = +hit[1]; m = +hit[2]; y = +hit[3]; }
+    else if((hit = /^(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]{3})[a-z]*\.?\s+(\d{2,4})$/i.exec(text))){
+      d = +hit[1]; m = MONTHS.indexOf(hit[2].toLowerCase()) + 1; y = +hit[3];
+    } else return '';
+    if(y < 100) y += 2000;
+    const date = new Date(y, m - 1, d);
+    if(!m || date.getMonth() !== m - 1 || date.getDate() !== d || y < 2000 || y > 2100) return '';
+    return y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+  }
+
   // the label is found whatever its case; the name after it must start with capitals
   const APPROVER_LABELS = [
     /(?:approved|authori[sz]ed|signed\s*off|verified|accepted)(?:\s*by)?(?:\s*\(?print\)?|\s*name)?\s*[:\-]?[ \t]*/ig,
@@ -136,68 +161,107 @@ const DaySheets = (function(){
     return '';
   }
 
-  function findDescription(text){
-    const lines = text.split(/\r?\n/).map(tidy).filter(Boolean);
-    const at = lines.findIndex(l => /^(description(?:\s*of\s*works?)?|works?\s*(?:carried\s*out|performed|completed|undertaken)|details?\s*of\s*works?|work\s*description|task(?:s)?\s*(?:performed)?)\b/i.test(l));
-    if(at !== -1){
-      const first = lines[at].replace(/^[^:\-]*[:\-]\s*/, (lead) => /[:\-]\s*$/.test(lead) ? '' : lead).trim();
-      const rest = [];
-      for(let i = at + 1; i < lines.length && rest.length < 6; i++){
-        if(LABELS.test(lines[i]) && !/^works?\b/i.test(lines[i])) break;
-        rest.push(lines[i]);
-      }
-      const head = /^(description|works?|details?|task)/i.test(first) && !/[:\-]/.test(lines[at]) ? '' : first;
-      return [head, ...rest].filter(Boolean).join(' ').replace(/^(description(?:\s*of\s*works?)?|work\s*description)\s*/i, '').trim();
-    }
-    // no heading found: the longest line that is not a label
-    return lines.filter(l => !LABELS.test(l) && l.length > 20).sort((a, b) => b.length - a.length)[0] || '';
-  }
-
   function extract(text){
-    return { number: findNumber(text), date: findDate(text), description: findDescription(text), approvedBy: findApprover(text) };
+    return { number: findNumber(text), date: isoDate(findDate(text)), approvedBy: findApprover(text) };
   }
 
   /* ---- showing a sheet ---------------------------------------------------------- */
 
-  async function show(file){
-    current = { file: file };
+  async function bytesOf(item){
+    if(!item.bytes) item.bytes = new Uint8Array(await item.file.arrayBuffer());
+    return item.bytes;
+  }
+
+  async function drawPage(doc, n){
+    const page = await doc.getPage(n);
+    const vp = page.getViewport({ scale: 2 });
+    const c = el('canvas', 'dsr-page');
+    c.width = Math.floor(vp.width);
+    c.height = Math.floor(vp.height);
+    await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+    return c;
+  }
+
+  // a page of the PDF as its own one-page PDF, to be filed on its own
+  async function pageFile(item){
+    if(typeof PDFLib === 'undefined') return item.file;
+    const src = await PDFLib.PDFDocument.load(await bytesOf(item), { ignoreEncryption: true });
+    const out = await PDFLib.PDFDocument.create();
+    const [copy] = await out.copyPages(src, [item.page - 1]);
+    out.addPage(copy);
+    const base = item.file.name.replace(/\.pdf$/i, '');
+    return new File([await out.save()], base + ' - page ' + item.page + '.pdf', { type: 'application/pdf' });
+  }
+
+  const nameOf = item => item.file.name + (item.page ? ' · page ' + item.page + ' of ' + item.pages : '');
+  function describeQueue(){
+    document.getElementById('dsr-sub').textContent = current
+      ? nameOf(current) + (queue.length ? ' · ' + queue.length + ' more after this one' : '') : '';
+  }
+
+  // one day sheet per page: the pages go to the front of the queue
+  function splitPages(item, pages){
+    const items = [];
+    for(let n = 1; n <= pages; n++) items.push({ file: item.file, bytes: item.bytes, page: n, pages: pages, texts: item.texts });
+    queue = items.concat(queue);
+  }
+
+  async function show(item){
+    current = item;
     view.innerHTML = '';
-    FIELDS.forEach(f => { box(f).value = ''; document.getElementById('dsr-' + f + '-found').textContent = ''; });
+    const bar = document.getElementById('dsr-split');
+    bar.hidden = true;
+    FIELDS.forEach(f => { box(f).value = ''; box(f).classList.remove('field-invalid'); document.getElementById('dsr-' + f + '-found').textContent = ''; });
     document.getElementById('dsr-text').textContent = '';
-    document.getElementById('dsr-sub').textContent = file.name + (queue.length ? ' · ' + queue.length + ' more after this one' : '');
+    describeQueue();
     document.getElementById('dsr-verify').disabled = true;
     modal.hidden = false;
-    say('Opening ' + file.name + '…');
+    say('Opening ' + nameOf(item) + '…');
 
     let text = '';
     try {
-      const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+      const isPdf = item.file.type === 'application/pdf' || /\.pdf$/i.test(item.file.name);
       if(isPdf){
         if(typeof pdfjsLib === 'undefined') throw new Error('the PDF viewer did not load');
-        const doc = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+        const doc = await pdfjsLib.getDocument({ data: (await bytesOf(item)).slice() }).promise;
+        const pages = doc.numPages;
+        const wanted = item.page ? [item.page] : Array.from({ length: Math.min(pages, 12) }, (_, i) => i + 1);
         const canvases = [];
-        for(let n = 1; n <= Math.min(doc.numPages, 4); n++){
-          const page = await doc.getPage(n);
-          const vp = page.getViewport({ scale: 2 });
-          const c = el('canvas', 'dsr-page');
-          c.width = Math.floor(vp.width);
-          c.height = Math.floor(vp.height);
-          await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+        for(const n of wanted){
+          const c = await drawPage(doc, n);
           view.appendChild(c);
           canvases.push(c);
         }
-        text = await pdfText(doc);
+        // the text of every page, read once and kept for the pages split off it
+        if(!item.texts) item.texts = await pdfPageTexts(doc);
+        let texts = item.page ? [item.texts[item.page - 1] || ''] : item.texts.slice();
         // a scanned PDF has no text of its own: read the pages as pictures
-        if(text.replace(/\s/g, '').length < 25){
-          text = '';
-          for(const c of canvases) text += (await ocr(c)) + '\n';
+        for(let i = 0; i < texts.length && i < canvases.length; i++){
+          if(texts[i].replace(/\s/g, '').length < 25){
+            say('Reading ' + (wanted.length > 1 ? 'page ' + wanted[i] + ' of ' + wanted.length : 'the day sheet') + '…');
+            texts[i] = await ocr(canvases[i]);
+            if(!item.page) item.texts[wanted[i] - 1] = texts[i];
+          }
         }
         doc.destroy();
+        if(!item.page && pages > 1){
+          // different day sheet numbers on different pages: several day sheets
+          const numbers = new Set(texts.map(findNumber).filter(Boolean).map(n => n.toUpperCase()));
+          if(numbers.size > 1){
+            splitPages(item, pages);
+            say(pages + ' pages with different day sheet numbers — split into one day sheet per page.', 'ok');
+            return show(queue.shift());
+          }
+          bar.hidden = false;
+          document.getElementById('dsr-split-text').textContent =
+            'This PDF has ' + pages + ' pages, read as one day sheet. If each page is a day sheet of its own:';
+        }
+        text = texts.join('\n');
       } else {
-        const url = URL.createObjectURL(file);
+        const url = URL.createObjectURL(item.file);
         const img = el('img', 'dsr-page');
         img.src = url;
-        img.alt = file.name;
+        img.alt = item.file.name;
         view.appendChild(img);
         await new Promise((ok, bad) => { img.onload = ok; img.onerror = () => bad(new Error('the picture could not be opened')); });
         text = await ocr(img);
@@ -212,7 +276,8 @@ const DaySheets = (function(){
     FIELDS.forEach(f => {
       box(f).value = found[f];
       const tag = document.getElementById('dsr-' + f + '-found');
-      tag.textContent = found[f] ? 'read from the sheet' : 'not found — fill in';
+      tag.textContent = found[f] ? 'read from the sheet'
+        : f === 'date' ? 'not read — pick it on the calendar' : 'not found — fill in';
       tag.className = 'dsr-found ' + (found[f] ? 'ok' : 'missing');
     });
     const got = FIELDS.filter(f => found[f]).length;
@@ -221,7 +286,7 @@ const DaySheets = (function(){
       : got + ' of ' + FIELDS.length + ' found. Check them against the sheet and fill in the rest, then press Verified.',
       got === FIELDS.length ? 'ok' : '');
     document.getElementById('dsr-verify').disabled = false;
-    box(found.number ? 'description' : 'number').focus();
+    box(found.number ? (found.date ? 'approvedBy' : 'date') : 'number').focus();
   }
 
   async function next(){
@@ -236,6 +301,12 @@ const DaySheets = (function(){
     current = null;
     queue = [];
     view.innerHTML = '';
+    const note = document.getElementById('ds-drop-note');
+    if(filed){
+      note.textContent = filed + ' day sheet' + (filed === 1 ? '' : 's') + ' verified, added to the table and filed on the Documentation step.';
+      note.hidden = false;
+    }
+    filed = 0;
   }
 
   async function verify(){
@@ -248,9 +319,10 @@ const DaySheets = (function(){
     if(already && !confirm('Day sheet ' + v.number + ' is already on this variation. Add it again?')) return;
     // into the first empty row of the table, or a new one
     const rows = Array.from(dsRowsContainer.children);
-    const row = rows.find(r => !r.querySelector('.ds-number').value.trim() && !r.querySelector('.ds-desc').value.trim()) || addDsRow();
+    const row = rows.find(r => !r.querySelector('.ds-number').value.trim() && !r.querySelector('.ds-desc').value.trim() &&
+      !r.querySelector('.ds-date').value) || addDsRow();
     row.querySelector('.ds-number').value = v.number;
-    row.querySelector('.ds-desc').value = [v.date, v.description].filter(Boolean).join(' — ');
+    row.querySelector('.ds-date').value = v.date;
     row.querySelector('.ds-by').value = v.approvedBy;
     renderDsPreview();
     // a day sheet variation with nothing written yet says what it is
@@ -258,18 +330,23 @@ const DaySheets = (function(){
       els['desc-final'].value = 'Works carried out as day works, as recorded on the signed day sheets listed below and attached.';
     }
     render();
-    const file = current.file;
-    say('Added. Attaching the sheet…');
-    try { await Stages.attachDaySheet(file, v.number); } catch(e){ console.error(e); }
+    // filed under its day sheet on the Documentation step
+    say('Added. Filing the sheet in Documentation…');
+    try {
+      const file = current.page ? await pageFile(current) : current.file;
+      await Stages.attachDaySheet(file, v.number);
+      filed++;
+    } catch(e){ console.error(e); }
     next();
   }
 
   function take(files){
     const list = Array.prototype.slice.call(files || []).filter(f => /^image\//.test(f.type) || f.type === 'application/pdf' || /\.(pdf|png|jpe?g|webp|bmp)$/i.test(f.name));
     if(!list.length) return;
-    queue = queue.concat(list);
+    queue = queue.concat(list.map(f => ({ file: f, page: 0 })));
+    document.getElementById('ds-drop-note').hidden = true;
     if(modal.hidden) next();
-    else document.getElementById('dsr-sub').textContent = current.file.name + ' · ' + queue.length + ' more after this one';
+    else describeQueue();
   }
 
   const zone = document.getElementById('ds-drop');
@@ -284,10 +361,17 @@ const DaySheets = (function(){
   });
   document.getElementById('dsr-verify').addEventListener('click', verify);
   document.getElementById('dsr-skip').addEventListener('click', next);
+  document.getElementById('dsr-split-btn').addEventListener('click', () => {
+    if(!current || current.page) return;
+    const item = current;
+    splitPages(item, item.texts ? item.texts.length : 1);
+    current = null;
+    next();
+  });
   document.getElementById('dsr-close').addEventListener('click', () => {
     if(queue.length && !confirm('Stop checking? The ' + queue.length + ' day sheet' + (queue.length === 1 ? '' : 's') + ' still to check will be left out.')) return;
     close();
   });
 
-  return { take: take, extract: extract };
+  return { take: take, extract: extract, isoDate: isoDate };
 })();
