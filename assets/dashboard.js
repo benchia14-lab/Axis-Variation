@@ -367,7 +367,7 @@ const Dashboard = (function(){
       });
     });
     if(!dbRows.children.length && shownRows.some(r => !Flows.isDeleted(r))){
-      dbRows.innerHTML = '<tr><td colspan="11" class="scope-empty">Nothing matches.</td></tr>';
+      dbRows.innerHTML = '<tr><td colspan="10" class="scope-empty">Nothing matches.</td></tr>';
     }
   }
 
@@ -410,30 +410,30 @@ const Dashboard = (function(){
     tr.appendChild(el('td', 'db-date', escapeHtml(day(row.downloadedAt))));
     tr.appendChild(el('td', 'db-date', escapeHtml(day(row.updatedAt))));
 
-    const cmt = el('td', 'db-act');
+    // commentary, Open and Delete share one column, so the table fits the page
+    const act = el('td', 'db-act');
+    const btns = act.appendChild(el('div', 'db-btns'));
     const live = liveCommentary(st.commentary);
     const n = live.length;
     const talk = el('button', 'refresh-btn db-talk' + (n ? ' has' : ''),
-      'Builder commentary' + (n ? ' <span class="db-badge">' + n + '</span>' : ''));
+      'Commentary' + (n ? ' <span class="db-badge">' + n + '</span>' : ''));
     talk.type = 'button';
     talk.disabled = !row.state_ || !row.state_.fields;
-    talk.title = n ? 'Last: ' + day(live[n - 1].at) : 'No commentary yet';
+    talk.title = 'Builder commentary & approval — ' + (n ? 'last ' + day(live[n - 1].at) : 'none yet');
     talk.addEventListener('click', () => openCommentary(row));
-    cmt.appendChild(talk);
-    tr.appendChild(cmt);
+    btns.appendChild(talk);
 
-    const act = el('td', 'db-act');
     const open = el('button', 'refresh-btn', 'Open');
     open.type = 'button';
     open.disabled = !row.state_ || !row.state_.fields;
     open.addEventListener('click', () => openRow(row));
-    act.appendChild(open);
+    btns.appendChild(open);
     const del = el('button', 'refresh-btn db-del', 'Delete');
     del.type = 'button';
     del.disabled = !canWrite;
     del.title = canWrite ? 'Remove it from this dashboard' : open.disabled ? 'This row has no saved form to update' : 'The log write flow is not connected';
     del.addEventListener('click', () => deleteRow(row));
-    act.appendChild(del);
+    btns.appendChild(del);
     tr.appendChild(act);
     return tr;
   }
