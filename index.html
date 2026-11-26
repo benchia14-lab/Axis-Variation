@@ -187,12 +187,14 @@
       <div class="dsr-view" id="dsr-view"></div>
       <div class="dsr-side">
         <div class="status-line" id="dsr-status"></div>
+        <div class="dsr-split" id="dsr-split" hidden>
+          <span id="dsr-split-text"></span>
+          <button type="button" class="refresh-btn" id="dsr-split-btn">One day sheet per page</button>
+        </div>
         <div class="field"><label for="dsr-number">Day sheet no. <span class="dsr-found" id="dsr-number-found"></span></label>
           <input type="text" id="dsr-number" class="mono-input"></div>
         <div class="field"><label for="dsr-date">Date <span class="dsr-found" id="dsr-date-found"></span></label>
-          <input type="text" id="dsr-date"></div>
-        <div class="field"><label for="dsr-description">Description <span class="dsr-found" id="dsr-description-found"></span></label>
-          <textarea id="dsr-description"></textarea></div>
+          <input type="date" id="dsr-date" class="date-pick"></div>
         <div class="field"><label for="dsr-approvedBy">Approved by <span class="dsr-found" id="dsr-approvedBy-found"></span></label>
           <input type="text" id="dsr-approvedBy"></div>
         <details class="dsr-text"><summary>Text read off the day sheet</summary><pre id="dsr-text"></pre></details>
@@ -519,14 +521,16 @@
       <label class="drop-zone ds-drop daysheet-only" id="ds-drop">
         <input type="file" id="ds-drop-file" multiple accept="application/pdf,image/*">
         <span class="dz-main">Drop the signed day sheets here, or <u>browse</u></span>
-        <span class="dz-sub">PDF, photo or scan. Each one is read and shown to you to check before it goes onto the variation.</span>
+        <span class="dz-sub">PDF, photo or scan — several at once, or one PDF holding several. Each is read and shown to you to check; once verified it goes into the table and is filed on the Documentation step.</span>
       </label>
+      <div class="status-line ok" id="ds-drop-note" hidden></div>
 
       <p class="form-subtitle"><span class="works-only">Day sheet reference</span><span class="daysheet-only">Day sheets on this variation</span></p>
       <div class="dwg-editor">
         <div class="dwg-row ds-row dwg-row-head">
           <div class="dwg-col">Day Sheet No.</div>
-          <div class="dwg-col">Description</div>
+          <div class="dwg-col">Date</div>
+          <div class="dwg-col works-only">Description</div>
           <div class="dwg-col">Approved By</div>
           <div class="dwg-col-remove"></div>
         </div>
@@ -644,7 +648,7 @@
           <div class="dwg-panel" id="ds-panel" style="display:none;">
             <p class="dwg-panel-title">Day Sheet Reference</p>
             <table class="dwg-preview-table">
-              <thead><tr><th>Day Sheet No.</th><th>Description</th><th>Approved By</th></tr></thead>
+              <thead id="ds-preview-head"><tr><th>Day Sheet No.</th><th>Date</th><th>Description</th><th>Approved By</th></tr></thead>
               <tbody id="ds-preview-body"></tbody>
             </table>
           </div>

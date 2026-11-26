@@ -68,11 +68,11 @@ label{
   display:block; font-size:11.5px; font-weight:600; color:var(--steel-dark);
   text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px;
 }
-input[type=text], input[type=password], textarea, select{
+input[type=text], input[type=password], input[type=date], textarea, select{
   width:100%; background:var(--paper); border:1px solid var(--line); border-radius:3px;
   padding:9px 10px; font-family:var(--font-body); font-size:13.5px; color:var(--ink); resize:vertical;
 }
-input[type=text]:focus, input[type=password]:focus, textarea:focus, select:focus{ outline:none; border-color:var(--steel); background:#fff; }
+input[type=text]:focus, input[type=date]:focus, input[type=password]:focus, textarea:focus, select:focus{ outline:none; border-color:var(--steel); background:#fff; }
 .field-invalid{ border-color:var(--red) !important; background:#FCEDEC !important; }
 .req-mark{ color:var(--red); font-weight:700; text-transform:none; letter-spacing:0; }
 .mono-input{ font-family:var(--font-body); font-size:13px; }
@@ -1361,3 +1361,13 @@ a.banner-home:focus-visible{ outline:2px solid #fff; outline-offset:4px; }
 .office-missing{ grid-row:2; margin-top:-6px; }
 @media (max-width: 760px){ .office-card > summary::after{ grid-column:3; } .office-missing{ grid-row:auto; } }
 .field-help .ok{ color:#2F6B3F; font-weight:600; } .field-help .err{ color:#A0402E; font-weight:600; }
+
+/* day sheet rows: number, date, description (complete works only), approved by */
+.dwg-row.ds-row{ grid-template-columns: minmax(0,.8fr) 150px minmax(0,1.8fr) minmax(0,1fr) 22px; }
+body.vt-daysheet .dwg-row.ds-row{ grid-template-columns: minmax(0,.9fr) 140px minmax(0,1.4fr) 22px; }
+input.date-pick{ font-family:inherit; }
+input.date-pick::-webkit-calendar-picker-indicator{ cursor:pointer; opacity:.75; }
+.dsr-split{ display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; margin:0 0 12px; padding:10px 12px;
+  background:#FBF4E4; border:1px solid #E0C48A; border-radius:4px; font-size:12.5px; color:#5F4712; }
+.dsr-split .refresh-btn{ padding:6px 12px; font-size:12.5px; }
+#ds-drop-note{ margin:-6px 0 12px; }

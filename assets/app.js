@@ -638,12 +638,14 @@ function addDsRow(){
   row.className = 'dwg-row ds-row';
   row.innerHTML =
     '<input type="text" class="dwg-input ds-number mono-input" placeholder="e.g. DS-014">' +
-    '<input type="text" class="dwg-input ds-desc" placeholder="e.g. After-hours crew to relocate sewer">' +
+    '<input type="date" class="dwg-input ds-date date-pick" title="Date on the day sheet">' +
+    '<input type="text" class="dwg-input ds-desc works-only" placeholder="e.g. After-hours crew to relocate sewer">' +
     '<input type="text" class="dwg-input ds-by" placeholder="e.g. Glen O\'Connor">' +
     '<button type="button" class="dwg-remove" title="Remove row">&times;</button>';
   dsRowsContainer.appendChild(row);
   row.querySelectorAll('.dwg-input').forEach(inp => {
     inp.addEventListener('input', renderDsPreview);
+    inp.addEventListener('change', renderDsPreview);
     inp.addEventListener('keydown', (e) => {
       if(e.key !== 'Enter') return;
       e.preventDefault();
@@ -660,12 +662,21 @@ function addDsRow(){
   return row;
 }
 
+// 2026-11-12 -> 12/11/2026, as the day sheet itself would write it
+function dsDateText(iso){
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+  return m ? m[3] + '/' + m[2] + '/' + m[1] : '';
+}
+
 function collectDaySheets(){
   return Array.from(dsRowsContainer.children).map(row => ({
     number: row.querySelector('.ds-number').value.trim(),
-    description: row.querySelector('.ds-desc').value.trim(),
+    date: row.querySelector('.ds-date').value,
+    // a day sheet variation has no description per sheet: the works are in
+    // the variation's own description
+    description: document.body.classList.contains('vt-daysheet') ? '' : row.querySelector('.ds-desc').value.trim(),
     approvedBy: row.querySelector('.ds-by').value.trim()
-  })).filter(r => r.number || r.description || r.approvedBy);
+  })).filter(r => r.number || r.date || r.description || r.approvedBy);
 }
 
 function setDaySheets(list){
@@ -673,6 +684,7 @@ function setDaySheets(list){
   (list || []).forEach(d => {
     const row = addDsRow();
     row.querySelector('.ds-number').value = d.number || '';
+    row.querySelector('.ds-date').value = /^\d{4}-\d{2}-\d{2}$/.test(d.date || '') ? d.date : '';
     row.querySelector('.ds-desc').value = d.description || '';
     row.querySelector('.ds-by').value = d.approvedBy || '';
   });
@@ -684,10 +696,16 @@ function renderDsPreview(){
   const rows = collectDaySheets();
   if(!rows.length){ dsPanel.style.display = 'none'; return; }
   dsPanel.style.display = 'block';
+  // a column only when something is in it: day sheet variations have no
+  // descriptions, older variations no dates
+  const withDate = rows.some(r => r.date), withDesc = rows.some(r => r.description);
+  document.getElementById('ds-preview-head').innerHTML = '<tr><th>Day Sheet No.</th>' +
+    (withDate ? '<th>Date</th>' : '') + (withDesc ? '<th>Description</th>' : '') + '<th>Approved By</th></tr>';
   dsPreviewBody.innerHTML = rows.map(r =>
     '<tr>' +
       '<td>' + (escapeHtml(r.number) || '—') + '</td>' +
-      '<td>' + (escapeHtml(r.description) || '—') + '</td>' +
+      (withDate ? '<td>' + (dsDateText(r.date) || '—') + '</td>' : '') +
+      (withDesc ? '<td>' + (escapeHtml(r.description) || '—') + '</td>' : '') +
       '<td>' + (escapeHtml(r.approvedBy) || '—') + '</td>' +
     '</tr>'
   ).join('');
@@ -1556,6 +1574,7 @@ let variationType = 'works';
 function setVariationType(type){
   variationType = type === 'daysheet' ? 'daysheet' : 'works';
   document.body.classList.toggle('vt-daysheet', variationType === 'daysheet');
+  renderDsPreview();
 }
 
 // The window + New variation opens: complete works or day sheets. `then` is
@@ -2157,7 +2176,7 @@ function logPayloadFromSaved(saved, ref, extra){
       .filter(Boolean).join('  ')).join('\n'),
     daySheets: daySheets,
     daySheetsText: daySheets
-      .map(d => [d.number, d.description, d.approvedBy ? 'approved by ' + d.approvedBy : '']
+      .map(d => [d.number, dsDateText(d.date), d.description, d.approvedBy ? 'approved by ' + d.approvedBy : '']
       .filter(Boolean).join('  ')).join('\n'),
     folderPath: ref.folderPath || '',
     variationFile: saved.variationFile || '',
